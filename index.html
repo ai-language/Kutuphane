@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NHG-Richtlijnen - Voortgang Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a6b3c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kütüphane">
 <style>
   html, body { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -75,7 +80,7 @@
   .sync-modal .btn-secondary { background:#f0f4f8;color:#4a5568; }
   .sync-modal .btn-danger { background:#e53e3e;color:white; }
   .check-wrap{display:flex;align-items:center;cursor:pointer;flex-shrink:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
-  .item-title{flex:1;font-size:0.9rem;color:#a0aec0;cursor:default;line-height:1.4;user-select:none;}
+  .item-title{flex:1;font-size:0.9rem;color:#a0aec0;cursor:pointer;line-height:1.4;user-select:none;}
   .item-title.has-media{color:#2b6cb0;cursor:pointer;}
   .item-title.has-media:hover{text-decoration:underline;}
   .item-title.has-media:active{opacity:0.7;}
@@ -121,12 +126,22 @@
   #lib-nhg{   --lib-c:#1a6b3c; --lib-c2:#2d9d60; }
   #lib-acute{ --lib-c:#9b1c31; --lib-c2:#c0314c; }
   #lib-bi{    --lib-c:#23272e; --lib-c2:#3a4049; }
+  #lib-en{    --lib-c:#1e3a8a; --lib-c2:#3b82f6; }
 
   .lib-view{ display:none; }
   .lib-view.active{ display:block; }
 
   #hub{ display:none; position:fixed; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:max(46px,calc(env(safe-area-inset-top,0px) + 20px)) 20px max(46px,calc(env(safe-area-inset-bottom,0px) + 20px)); background:linear-gradient(160deg,#0f1419,#1b2430); }
   #hub.active{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%; }
+  /* Hub alt araç butonları (Şifre / Etiketle) + admin görünürlük + indirileni sil */
+  .hub-tools{ margin-top:24px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .hub-tool{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.20); color:#cbd5e0; padding:7px 15px; border-radius:20px; font-size:.8rem; cursor:pointer; -webkit-tap-highlight-color:transparent; transition:background .15s; }
+  .hub-tool:hover{ background:rgba(255,255,255,.16); color:#fff; }
+  .admin-only{ display:none !important; }
+  body.admin .admin-only{ display:inline-block !important; }
+  .media-ctrls{ display:inline-flex; gap:2px; vertical-align:middle; }
+  .media-del,.media-asg{ margin-left:6px; border:none; background:transparent; cursor:pointer; font-size:14px; opacity:.5; padding:1px 4px; line-height:1; -webkit-tap-highlight-color:transparent; }
+  .media-del:hover,.media-asg:hover{ opacity:1; }
   .hub-title{ color:#fff; font-size:1.7rem; font-weight:800; letter-spacing:.4px; margin-bottom:7px; text-align:center; }
   .hub-sub{ color:rgba(255,255,255,.5); font-size:.92rem; margin-bottom:36px; text-align:center; line-height:1.5; }
   .hub-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; width:100%; max-width:940px; }
@@ -141,9 +156,11 @@
   .hub-card.hc-nhg{   background:linear-gradient(150deg,#1a6b3c,#2d9d60); }
   .hub-card.hc-acute{ background:linear-gradient(150deg,#9b1c31,#c0314c); }
   .hub-card.hc-bi{    background:linear-gradient(150deg,#262b33,#3f4751); }
+  .hub-card.hc-en{    background:linear-gradient(150deg,#1e3a8a,#3b82f6); }
 
   .lib-back{ background:rgba(255,255,255,.18); border:1.5px solid rgba(255,255,255,.5); color:#fff; padding:7px 14px; border-radius:8px; cursor:pointer; font-size:.82rem; font-weight:700; white-space:nowrap; touch-action:manipulation; -webkit-tap-highlight-color:rgba(0,0,0,0); }
   .lib-back:hover{ background:rgba(255,255,255,.28); }
+  body.pj-reading #nhg-overlay-bar { display:none; }   /* okuyucu (.pj-ov) acikken parent yesil < butonu gizle -> reader X'i ile cakismasin */
 
   .lib-empty{ max-width:580px; margin:54px auto; background:#fff; border-radius:14px; padding:40px 28px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.08); }
   .lib-empty .le-icon{ font-size:3.1rem; }
@@ -179,6 +196,13 @@
       <span class="hc-icon">📊</span>
       <span class="hc-body"><span class="hc-name">BI Dersleri</span><span class="hc-meta" id="hubmeta-bi"></span></span>
     </button>
+    <!-- EN kartı hub'da YOK (kullanıcı kararı): İngilizce sayfaya yalnız kütüphane-içi 🇬🇧 butonlarından girilir -->
+  </div>
+  <div class="hub-tools">
+    <button id="_hub_install_btn" class="hub-tool" onclick="_hubInstallPWA()" style="display:none">📲 Ana Ekrana</button>
+    <button class="hub-tool" onclick="showKeyModal()">🔑</button>
+    <button class="hub-tool admin-only" onclick="showTagger()">🏷 Etiketle</button>
+    <button class="hub-tool admin-only" onclick="genManifest()">📋 Manifest üret</button>
   </div>
 </div>
 
@@ -201,6 +225,7 @@
           📥 Kodu Aktar
         </button>
         <button id="stars-btn" onclick="showStarsLibrary()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,200,40,0.75);color:white;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:600;white-space:nowrap;touch-action:manipulation;" title="Yıldızlılar">⭐</button>
+        <button onclick="enterLib('en')" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.4);color:white;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;white-space:nowrap;touch-action:manipulation;" title="İngilizce podcast kütüphanesine geç">🇬🇧 İngilizce</button>
       </div>
       <div id="nhg-search">
         <input id="nhg-search-input" type="text" placeholder="Ara..." autocomplete="off" spellcheck="false">
@@ -209,8 +234,8 @@
     </div>
   </div>
   <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;">
-    <button onclick="triggerMediaImport()" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.5);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128194; Medya Ekle</button>
-    <button onclick="triggerZipImport()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128476; ZIP Ice Aktar</button>
+    <button class="admin-only" onclick="triggerMediaImport()" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.5);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128194; Medya Ekle</button>
+    <button class="admin-only" onclick="triggerZipImport()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128476; ZIP Ice Aktar</button>
     <span class="media-badge" style="font-size:0.72rem;opacity:0.85;color:white;"></span>
   </div>
   <p style="font-size:0.72rem;opacity:0.65;margin-top:8px;">&#128190; Otomatik kaydedilir &nbsp;|&nbsp; Mavi = medya var &#8594; tikla &nbsp;|&nbsp; &#8599; = NHG sitesi</p>
@@ -218,6 +243,8 @@
 
 <input type="file" id="media-file-input" accept=".html,.htm,.pdf" multiple style="display:none" onchange="handleMediaFiles(this.files)">
 <input type="file" id="zip-file-input" accept=".zip" style="display:none" onchange="handleZipFile(this.files[0])">
+<input type="file" id="_tag_input" accept=".html,.htm" multiple style="display:none" onchange="handleTagFile(this.files)">
+<input type="file" id="_assign_input" accept=".html,.htm" style="display:none" onchange="_handleAssign(this.files)">
 <nav class="tab-nav">
 <button class="tab-btn active" onclick="showTab(0)" id="tbtn_0">NHG-Standaarden</button>
 <button class="tab-btn" onclick="showTab(1)" id="tbtn_1">NHG-Behandelrichtlijnen</button>
@@ -1760,7 +1787,7 @@
             <input type="checkbox" class="item-check" id="item_1_9_1" onchange="saveState('item_1_9_1',this.checked)">
             <span class="checkmark"></span>
           </label>
-          <span class="item-title" data-id="item_1_9_1">Dysmenorroe</span>
+          <span class="item-title" data-id="item_1_9_1">Dysmenorroe (→ Standaarden'e taşındı)</span>
           <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/dysmenorroe" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
         </div>
       </li>
@@ -2456,12 +2483,13 @@
         <button onclick="copySyncCode()" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.7);color:white;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:700;white-space:nowrap;touch-action:manipulation;">📋 Sync Kodu Kopyala</button>
         <button onclick="importSyncCode()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.4);color:white;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">📥 Kodu Aktar</button>
         <button onclick="showStarsLibrary()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,200,40,0.75);color:white;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:600;white-space:nowrap;touch-action:manipulation;" title="Yıldızlılar">⭐</button>
+        <button onclick="enterLib('en')" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.4);color:white;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;white-space:nowrap;touch-action:manipulation;" title="İngilizce podcast kütüphanesine geç">🇬🇧 İngilizce</button>
       </div>
     </div>
   </div>
   <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;">
-    <button onclick="triggerMediaImport()" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.5);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128194; Medya Ekle</button>
-    <button onclick="triggerZipImport()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128476; ZIP Ice Aktar</button>
+    <button class="admin-only" onclick="triggerMediaImport()" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.5);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128194; Medya Ekle</button>
+    <button class="admin-only" onclick="triggerZipImport()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128476; ZIP Ice Aktar</button>
     <span class="media-badge" style="font-size:0.72rem;opacity:0.85;color:white;"></span>
   </div>
 </header>
@@ -2488,12 +2516,13 @@
         <button onclick="copySyncCode()" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.7);color:white;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:700;white-space:nowrap;touch-action:manipulation;">📋 Sync Kodu Kopyala</button>
         <button onclick="importSyncCode()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.4);color:white;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">📥 Kodu Aktar</button>
         <button onclick="showStarsLibrary()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,200,40,0.75);color:white;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:600;white-space:nowrap;touch-action:manipulation;" title="Yıldızlılar">⭐</button>
+        <button onclick="enterLib('en')" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.4);color:white;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;white-space:nowrap;touch-action:manipulation;" title="İngilizce podcast kütüphanesine geç">🇬🇧 İngilizce</button>
       </div>
     </div>
   </div>
   <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;">
-    <button onclick="triggerMediaImport()" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.5);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128194; Medya Ekle</button>
-    <button onclick="triggerZipImport()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128476; ZIP Ice Aktar</button>
+    <button class="admin-only" onclick="triggerMediaImport()" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.5);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128194; Medya Ekle</button>
+    <button class="admin-only" onclick="triggerZipImport()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128476; ZIP Ice Aktar</button>
     <span class="media-badge" style="font-size:0.72rem;opacity:0.85;color:white;"></span>
   </div>
 </header>
@@ -2506,6 +2535,2254 @@
 </div>
 </div><!-- /lib-bi -->
 
+<!-- ============ English Podcasts ============ -->
+<div class="lib-view" id="lib-en" data-lib="en">
+<header>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div>
+      <button class="lib-back" onclick="showHub()" style="margin-bottom:8px;">‹ Kütüphane</button>
+      <h1>🇬🇧 English Podcasts</h1>
+      <p>İngilizce podcast arşivi — kelime ve deyim çevirileri Türkçe</p>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:9px;flex-shrink:0;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="copySyncCode()" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.7);color:white;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:700;white-space:nowrap;touch-action:manipulation;">📋 Sync Kodu Kopyala</button>
+        <button onclick="importSyncCode()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.4);color:white;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">📥 Kodu Aktar</button>
+        <button onclick="showStarsLibrary()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,200,40,0.75);color:white;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:600;white-space:nowrap;touch-action:manipulation;" title="Yıldızlılar">⭐</button>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+    <button class="admin-only" onclick="triggerMediaImport()" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.5);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128194; Medya Ekle</button>
+    <button class="admin-only" onclick="triggerZipImport()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128476; ZIP Ice Aktar</button>
+    <span class="media-badge" style="font-size:0.72rem;opacity:0.85;color:white;"></span>
+  </div>
+</header>
+<nav class="tab-nav">
+<button class="tab-btn active" onclick="showTab(0)" id="tbtn_0">NHG-Standaarden</button>
+<button class="tab-btn" onclick="showTab(1)" id="tbtn_1">NHG-Behandelrichtlijnen</button>
+<button class="tab-btn" onclick="showTab(2)" id="tbtn_2">Medisch inhoudelijke NHG-Standpunten</button>
+<button class="tab-btn" onclick="showTab(3)" id="tbtn_3">Landelijke Eerstelijns Samenwerkingsafspraken</button>
+<button class="tab-btn" onclick="showTab(4)" id="tbtn_4">Multidisciplinaire richtlijnen</button>
+<button class="tab-btn" onclick="showTab(5)" id="tbtn_5">Landelijke Transmurale Afspraken</button>
+</nav>
+
+<div class="content">
+<div class="tab-content active" id="tab_0">
+    <div class="tab-stats">
+      <span class="stats-label">Tamamlanan:</span>
+      <span class="stats-val" id="stats_0">0 / 94</span>
+      <div class="progress-bar"><div class="progress-fill" id="prog_0" style="width:0%"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <h3 class="section-title">A. Algemeen</h3>
+        <span class="section-count" id="cnt_0_0">0/3</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_0_0">
+        <div class="item-label">
+          <label for="item_en_0_0_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_0_0" onchange="saveState('item_en_0_0_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_0_0">Kinderen met koorts</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/kinderen-met-koorts" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_0_1">
+        <div class="item-label">
+          <label for="item_en_0_0_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_0_1" onchange="saveState('item_en_0_0_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_0_1">Pijn</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/pijn" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_0_2">
+        <div class="item-label">
+          <label for="item_en_0_0_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_0_2" onchange="saveState('item_en_0_0_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_0_2">Somatisch onvoldoende verklaarde lichamelijke klachten (SOLK)</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/somatisch-onvoldoende-verklaarde-lichamelijke-klachten-solk" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">B. Bloed</h3>
+        <span class="section-count" id="cnt_0_1">0/1</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_1_0">
+        <div class="item-label">
+          <label for="item_en_0_1_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_1_0" onchange="saveState('item_en_0_1_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_1_0">Anemie</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/anemie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">D. Spijsverteringsorganen</h3>
+        <span class="section-count" id="cnt_0_2">0/9</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_2_0">
+        <div class="item-label">
+          <label for="item_en_0_2_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_2_0" onchange="saveState('item_en_0_2_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_2_0">Buikpijn bij kinderen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/buikpijn-bij-kinderen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_2_1">
+        <div class="item-label">
+          <label for="item_en_0_2_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_2_1" onchange="saveState('item_en_0_2_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_2_1">Diverticulitis</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/diverticulitis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_2_2">
+        <div class="item-label">
+          <label for="item_en_0_2_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_2_2" onchange="saveState('item_en_0_2_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_2_2">Gastro-enteritis</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/gastro-enteritis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_2_3">
+        <div class="item-label">
+          <label for="item_en_0_2_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_2_3" onchange="saveState('item_en_0_2_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_2_3">Maagklachten</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/maagklachten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_2_4">
+        <div class="item-label">
+          <label for="item_en_0_2_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_2_4" onchange="saveState('item_en_0_2_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_2_4">Obstipatie</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/obstipatie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_2_5">
+        <div class="item-label">
+          <label for="item_en_0_2_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_2_5" onchange="saveState('item_en_0_2_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_2_5">Prikkelbaredarmsyndroom (PDS)</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/prikkelbaredarmsyndroom-pds" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_2_6">
+        <div class="item-label">
+          <label for="item_en_0_2_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_2_6" onchange="saveState('item_en_0_2_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_2_6">Rectaal bloedverlies</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/rectaal-bloedverlies" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_2_7">
+        <div class="item-label">
+          <label for="item_en_0_2_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_2_7" onchange="saveState('item_en_0_2_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_2_7">Virushepatitis en andere leveraandoeningen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/virushepatitis-en-andere-leveraandoeningen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_2_8">
+        <div class="item-label">
+          <label for="item_en_0_2_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_2_8" onchange="saveState('item_en_0_2_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_2_8">Voedselovergevoeligheid en coeliakie</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/voedselovergevoeligheid-en-coeliakie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">F. Ogen</h3>
+        <span class="section-count" id="cnt_0_3">0/2</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_3_0">
+        <div class="item-label">
+          <label for="item_en_0_3_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_3_0" onchange="saveState('item_en_0_3_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_3_0">Rood oog en oogtrauma</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/rood-oog-en-oogtrauma" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_3_1">
+        <div class="item-label">
+          <label for="item_en_0_3_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_3_1" onchange="saveState('item_en_0_3_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_3_1">Visusklachten</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/visusklachten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">H. Oren</h3>
+        <span class="section-count" id="cnt_0_4">0/4</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_4_0">
+        <div class="item-label">
+          <label for="item_en_0_4_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_4_0" onchange="saveState('item_en_0_4_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_4_0">Otitis externa</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/otitis-externa" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_4_1">
+        <div class="item-label">
+          <label for="item_en_0_4_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_4_1" onchange="saveState('item_en_0_4_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_4_1">Otitis media acuta bij kinderen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/otitis-media-acuta-bij-kinderen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_4_2">
+        <div class="item-label">
+          <label for="item_en_0_4_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_4_2" onchange="saveState('item_en_0_4_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_4_2">Otitis media met effusie bij kinderen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/otitis-media-met-effusie-bij-kinderen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_4_3">
+        <div class="item-label">
+          <label for="item_en_0_4_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_4_3" onchange="saveState('item_en_0_4_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_4_3">Slechthorendheid</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/slechthorendheid" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">K. Hart-vaatstelsel</h3>
+        <span class="section-count" id="cnt_0_5">0/9</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_5_0">
+        <div class="item-label">
+          <label for="item_en_0_5_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_5_0" onchange="saveState('item_en_0_5_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_5_0">Acuut coronair syndroom</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/acuut-coronair-syndroom" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_5_1">
+        <div class="item-label">
+          <label for="item_en_0_5_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_5_1" onchange="saveState('item_en_0_5_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_5_1">Atriumfibrilleren</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/atriumfibrilleren" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_5_2">
+        <div class="item-label">
+          <label for="item_en_0_5_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_5_2" onchange="saveState('item_en_0_5_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_5_2">Beroerte</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/beroerte" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_5_3">
+        <div class="item-label">
+          <label for="item_en_0_5_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_5_3" onchange="saveState('item_en_0_5_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_5_3">Cardiovasculair risicomanagement</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/cardiovasculair-risicomanagement" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_5_4">
+        <div class="item-label">
+          <label for="item_en_0_5_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_5_4" onchange="saveState('item_en_0_5_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_5_4">Diepveneuze trombose en longembolie</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/diepveneuze-trombose-en-longembolie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_5_5">
+        <div class="item-label">
+          <label for="item_en_0_5_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_5_5" onchange="saveState('item_en_0_5_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_5_5">Hartfalen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/hartfalen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_5_6">
+        <div class="item-label">
+          <label for="item_en_0_5_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_5_6" onchange="saveState('item_en_0_5_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_5_6">Perifeer arterieel vaatlijden</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/perifeer-arterieel-vaatlijden" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_5_7">
+        <div class="item-label">
+          <label for="item_en_0_5_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_5_7" onchange="saveState('item_en_0_5_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_5_7">Stabiele angina pectoris</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/stabiele-angina-pectoris" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_5_8">
+        <div class="item-label">
+          <label for="item_en_0_5_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_5_8" onchange="saveState('item_en_0_5_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_5_8">Varices</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/varices" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">L. Bewegingsapparaat</h3>
+        <span class="section-count" id="cnt_0_6">0/11</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_6_0">
+        <div class="item-label">
+          <label for="item_en_0_6_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_0" onchange="saveState('item_en_0_6_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_0">Artritis</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/artritis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_6_1">
+        <div class="item-label">
+          <label for="item_en_0_6_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_1" onchange="saveState('item_en_0_6_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_1">Aspecifieke lagerugpijn</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/aspecifieke-lagerugpijn" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_6_2">
+        <div class="item-label">
+          <label for="item_en_0_6_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_2" onchange="saveState('item_en_0_6_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_2">Enkelbandletsel</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/enkelbandletsel" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_6_3">
+        <div class="item-label">
+          <label for="item_en_0_6_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_3" onchange="saveState('item_en_0_6_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_3">Epicondylitis</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/epicondylitis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_6_4">
+        <div class="item-label">
+          <label for="item_en_0_6_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_4" onchange="saveState('item_en_0_6_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_4">Fractuurpreventie</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/fractuurpreventie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_6_5">
+        <div class="item-label">
+          <label for="item_en_0_6_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_5" onchange="saveState('item_en_0_6_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_5">Hand- en polsklachten</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/hand-en-polsklachten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_6_6">
+        <div class="item-label">
+          <label for="item_en_0_6_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_6" onchange="saveState('item_en_0_6_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_6">Lumbosacraal radiculair syndroom</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/lumbosacraal-radiculair-syndroom" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_6_7">
+        <div class="item-label">
+          <label for="item_en_0_6_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_7" onchange="saveState('item_en_0_6_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_7">Niet-traumatische knieklachten</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/niet-traumatische-knieklachten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_6_8">
+        <div class="item-label">
+          <label for="item_en_0_6_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_8" onchange="saveState('item_en_0_6_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_8">Polymyalgia rheumatica en arteriitis temporalis</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/polymyalgia-rheumatica-en-arteriitis-temporalis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_6_9">
+        <div class="item-label">
+          <label for="item_en_0_6_9" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_9" onchange="saveState('item_en_0_6_9',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_9">Schouderklachten</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/schouderklachten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_6_10">
+        <div class="item-label">
+          <label for="item_en_0_6_10" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_6_10" onchange="saveState('item_en_0_6_10',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_6_10">Traumatische knieklachten</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/traumatische-knieklachten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">N. Zenuwstelsel</h3>
+        <span class="section-count" id="cnt_0_7">0/5</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_7_0">
+        <div class="item-label">
+          <label for="item_en_0_7_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_7_0" onchange="saveState('item_en_0_7_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_7_0">Duizeligheid</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/duizeligheid" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_7_1">
+        <div class="item-label">
+          <label for="item_en_0_7_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_7_1" onchange="saveState('item_en_0_7_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_7_1">Hoofdpijn</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/hoofdpijn" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_7_2">
+        <div class="item-label">
+          <label for="item_en_0_7_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_7_2" onchange="saveState('item_en_0_7_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_7_2">Hoofdtrauma</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/hoofdtrauma" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_7_3">
+        <div class="item-label">
+          <label for="item_en_0_7_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_7_3" onchange="saveState('item_en_0_7_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_7_3">Perifere aangezichtsverlamming</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/perifere-aangezichtsverlamming" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_7_4">
+        <div class="item-label">
+          <label for="item_en_0_7_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_7_4" onchange="saveState('item_en_0_7_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_7_4">Ziekte van Parkinson</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/ziekte-van-parkinson" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">P. Psychische problemen</h3>
+        <span class="section-count" id="cnt_0_8">0/9</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_8_0">
+        <div class="item-label">
+          <label for="item_en_0_8_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_8_0" onchange="saveState('item_en_0_8_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_8_0">ADHD</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/adhd" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_8_1">
+        <div class="item-label">
+          <label for="item_en_0_8_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_8_1" onchange="saveState('item_en_0_8_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_8_1">Angst</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/angst" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_8_2">
+        <div class="item-label">
+          <label for="item_en_0_8_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_8_2" onchange="saveState('item_en_0_8_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_8_2">Bedplassen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/bedplassen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_8_3">
+        <div class="item-label">
+          <label for="item_en_0_8_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_8_3" onchange="saveState('item_en_0_8_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_8_3">Delier</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/delier" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_8_4">
+        <div class="item-label">
+          <label for="item_en_0_8_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_8_4" onchange="saveState('item_en_0_8_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_8_4">Dementie</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/dementie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_8_5">
+        <div class="item-label">
+          <label for="item_en_0_8_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_8_5" onchange="saveState('item_en_0_8_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_8_5">Depressie</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/depressie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_8_6">
+        <div class="item-label">
+          <label for="item_en_0_8_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_8_6" onchange="saveState('item_en_0_8_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_8_6">Overspanning en burn-out</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/overspanning-en-burn-out" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_8_7">
+        <div class="item-label">
+          <label for="item_en_0_8_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_8_7" onchange="saveState('item_en_0_8_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_8_7">Problematisch alcoholgebruik</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/problematisch-alcoholgebruik" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_8_8">
+        <div class="item-label">
+          <label for="item_en_0_8_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_8_8" onchange="saveState('item_en_0_8_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_8_8">Slaapproblemen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/slaapproblemen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">R. Luchtwegen</h3>
+        <span class="section-count" id="cnt_0_9">0/9</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_9_0">
+        <div class="item-label">
+          <label for="item_en_0_9_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_9_0" onchange="saveState('item_en_0_9_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_9_0">Acute keelpijn</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/acute-keelpijn" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_9_1">
+        <div class="item-label">
+          <label for="item_en_0_9_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_9_1" onchange="saveState('item_en_0_9_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_9_1">Acute rhinosinusitis</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/acute-rhinosinusitis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_9_2">
+        <div class="item-label">
+          <label for="item_en_0_9_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_9_2" onchange="saveState('item_en_0_9_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_9_2">Acuut hoesten</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/acuut-hoesten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_9_3">
+        <div class="item-label">
+          <label for="item_en_0_9_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_9_3" onchange="saveState('item_en_0_9_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_9_3">Allergische en niet-allergische rinitis</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/allergische-en-niet-allergische-rinitis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_9_4">
+        <div class="item-label">
+          <label for="item_en_0_9_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_9_4" onchange="saveState('item_en_0_9_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_9_4">Astma bij kinderen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/astma-bij-kinderen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_9_5">
+        <div class="item-label">
+          <label for="item_en_0_9_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_9_5" onchange="saveState('item_en_0_9_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_9_5">Astma bij volwassenen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/astma-bij-volwassenen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_9_6">
+        <div class="item-label">
+          <label for="item_en_0_9_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_9_6" onchange="saveState('item_en_0_9_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_9_6">COPD</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/copd" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_9_7">
+        <div class="item-label">
+          <label for="item_en_0_9_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_9_7" onchange="saveState('item_en_0_9_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_9_7">COVID-19</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/covid-19" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_9_8">
+        <div class="item-label">
+          <label for="item_en_0_9_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_9_8" onchange="saveState('item_en_0_9_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_9_8">Langdurige klachten na COVID-19</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/langdurige-klachten-na-covid-19" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">S. Huid en subcutis</h3>
+        <span class="section-count" id="cnt_0_10">0/9</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_10_0">
+        <div class="item-label">
+          <label for="item_en_0_10_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_10_0" onchange="saveState('item_en_0_10_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_10_0">Acne</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/acne" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_10_1">
+        <div class="item-label">
+          <label for="item_en_0_10_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_10_1" onchange="saveState('item_en_0_10_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_10_1">Bacteriële huidinfecties</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/bacteriele-huidinfecties" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_10_2">
+        <div class="item-label">
+          <label for="item_en_0_10_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_10_2" onchange="saveState('item_en_0_10_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_10_2">Decubitus</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/decubitus" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_10_3">
+        <div class="item-label">
+          <label for="item_en_0_10_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_10_3" onchange="saveState('item_en_0_10_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_10_3">Dermatomycosen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/dermatomycosen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_10_4">
+        <div class="item-label">
+          <label for="item_en_0_10_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_10_4" onchange="saveState('item_en_0_10_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_10_4">Eczeem</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/eczeem" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_10_5">
+        <div class="item-label">
+          <label for="item_en_0_10_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_10_5" onchange="saveState('item_en_0_10_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_10_5">Lichen sclerosus</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/lichen-sclerosus" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_10_6">
+        <div class="item-label">
+          <label for="item_en_0_10_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_10_6" onchange="saveState('item_en_0_10_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_10_6">Psoriasis</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/psoriasis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_10_7">
+        <div class="item-label">
+          <label for="item_en_0_10_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_10_7" onchange="saveState('item_en_0_10_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_10_7">Ulcus cruris venosum</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/ulcus-cruris-venosum" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_10_8">
+        <div class="item-label">
+          <label for="item_en_0_10_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_10_8" onchange="saveState('item_en_0_10_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_10_8">Verdachte huidafwijkingen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/verdachte-huidafwijkingen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">T. Endocriene klieren / voeding / metabolisme</h3>
+        <span class="section-count" id="cnt_0_11">0/3</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_11_0">
+        <div class="item-label">
+          <label for="item_en_0_11_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_11_0" onchange="saveState('item_en_0_11_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_11_0">Diabetes mellitus type 2</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/diabetes-mellitus-type-2" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_11_1">
+        <div class="item-label">
+          <label for="item_en_0_11_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_11_1" onchange="saveState('item_en_0_11_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_11_1">Obesitas</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/obesitas" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_11_2">
+        <div class="item-label">
+          <label for="item_en_0_11_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_11_2" onchange="saveState('item_en_0_11_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_11_2">Schildklieraandoeningen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/schildklieraandoeningen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">U. Urinewegen</h3>
+        <span class="section-count" id="cnt_0_12">0/5</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_12_0">
+        <div class="item-label">
+          <label for="item_en_0_12_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_12_0" onchange="saveState('item_en_0_12_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_12_0">Chronische nierschade</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/chronische-nierschade" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_12_1">
+        <div class="item-label">
+          <label for="item_en_0_12_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_12_1" onchange="saveState('item_en_0_12_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_12_1">Incontinentie voor urine bij vrouwen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/incontinentie-voor-urine-bij-vrouwen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_12_2">
+        <div class="item-label">
+          <label for="item_en_0_12_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_12_2" onchange="saveState('item_en_0_12_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_12_2">Mictieklachten bij mannen</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/mictieklachten-bij-mannen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_12_3">
+        <div class="item-label">
+          <label for="item_en_0_12_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_12_3" onchange="saveState('item_en_0_12_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_12_3">Urinesteenlijden</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/urinesteenlijden" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_12_4">
+        <div class="item-label">
+          <label for="item_en_0_12_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_12_4" onchange="saveState('item_en_0_12_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_12_4">Urineweginfecties</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/urineweginfecties" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">W/X/Y. Zwangerschap / anticonceptie / geslachtsorganen man en vrouw</h3>
+        <span class="section-count" id="cnt_0_13">0/15</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_0_13_0">
+        <div class="item-label">
+          <label for="item_en_0_13_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_0" onchange="saveState('item_en_0_13_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_0">Amenorroe</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/amenorroe" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_1">
+        <div class="item-label">
+          <label for="item_en_0_13_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_1" onchange="saveState('item_en_0_13_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_1">Anticonceptie</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/anticonceptie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_2">
+        <div class="item-label">
+          <label for="item_en_0_13_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_2" onchange="saveState('item_en_0_13_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_2">Borstkanker</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/borstkanker" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_2d">
+        <div class="item-label">
+          <label for="item_en_0_13_2d" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_2d" onchange="saveState('item_en_0_13_2d',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_2d">Dysmenorroe</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/dysmenorroe" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_3">
+        <div class="item-label">
+          <label for="item_en_0_13_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_3" onchange="saveState('item_en_0_13_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_3">Fluor vaginalis</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/fluor-vaginalis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_4">
+        <div class="item-label">
+          <label for="item_en_0_13_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_4" onchange="saveState('item_en_0_13_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_4">Miskraam</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/miskraam" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_5">
+        <div class="item-label">
+          <label for="item_en_0_13_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_5" onchange="saveState('item_en_0_13_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_5">Overgang</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/de-overgang" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_6">
+        <div class="item-label">
+          <label for="item_en_0_13_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_6" onchange="saveState('item_en_0_13_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_6">Pelvic inflammatory disease</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/pelvic-inflammatory-disease" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_7">
+        <div class="item-label">
+          <label for="item_en_0_13_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_7" onchange="saveState('item_en_0_13_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_7">Preconceptiezorg</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/preconceptiezorg" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_8">
+        <div class="item-label">
+          <label for="item_en_0_13_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_8" onchange="saveState('item_en_0_13_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_8">Prostaatkanker</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/prostaatkanker" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_9">
+        <div class="item-label">
+          <label for="item_en_0_13_9" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_9" onchange="saveState('item_en_0_13_9',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_9">Seksuele klachten</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/seksuele-klachten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_10">
+        <div class="item-label">
+          <label for="item_en_0_13_10" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_10" onchange="saveState('item_en_0_13_10',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_10">Soa-consult</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/het-soa-consult" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_11">
+        <div class="item-label">
+          <label for="item_en_0_13_11" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_11" onchange="saveState('item_en_0_13_11',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_11">Subfertiliteit</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/subfertiliteit" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_12">
+        <div class="item-label">
+          <label for="item_en_0_13_12" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_12" onchange="saveState('item_en_0_13_12',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_12">Vaginaal bloedverlies</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/vaginaal-bloedverlies" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_0_13_13">
+        <div class="item-label">
+          <label for="item_en_0_13_13" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_0_13_13" onchange="saveState('item_en_0_13_13',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_0_13_13">Zwangerschap en kraamperiode</span>
+          <a href="https://richtlijnen.nhg.org/standaarden/zwangerschap-en-kraamperiode" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+  </div>
+<div class="tab-content" id="tab_1">
+    <div class="tab-stats">
+      <span class="stats-label">Tamamlanan:</span>
+      <span class="stats-val" id="stats_1">0 / 46</span>
+      <div class="progress-bar"><div class="progress-fill" id="prog_1" style="width:0%"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <h3 class="section-title">A. Algemeen</h3>
+        <span class="section-count" id="cnt_1_0">0/6</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_1_0_0">
+        <div class="item-label">
+          <label for="item_en_1_0_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_0_0" onchange="saveState('item_en_1_0_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_0_0">Geneesmiddelen en zuurstof in spoedeisende situaties</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/geneesmiddelen-en-zuurstof-spoedeisende-situaties" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_0_1">
+        <div class="item-label">
+          <label for="item_en_1_0_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_0_1" onchange="saveState('item_en_1_0_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_0_1">Hyperhidrose</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/hyperhidrose" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_0_2">
+        <div class="item-label">
+          <label for="item_en_1_0_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_0_2" onchange="saveState('item_en_1_0_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_0_2">Perniones (wintertenen, winterhanden)</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/perniones-wintertenen-winterhanden" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_0_3">
+        <div class="item-label">
+          <label for="item_en_1_0_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_0_3" onchange="saveState('item_en_1_0_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_0_3">Reisziekte</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/reisziekte" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_0_4">
+        <div class="item-label">
+          <label for="item_en_1_0_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_0_4" onchange="saveState('item_en_1_0_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_0_4">Tekenbeet en erythema migrans</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/tekenbeet-en-erythema-migrans" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_0_5">
+        <div class="item-label">
+          <label for="item_en_1_0_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_0_5" onchange="saveState('item_en_1_0_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_0_5">Waterpokken</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/waterpokken" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">D. Spijsverteringsorganen</h3>
+        <span class="section-count" id="cnt_1_1">0/9</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_1_1_0">
+        <div class="item-label">
+          <label for="item_en_1_1_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_1_0" onchange="saveState('item_en_1_1_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_1_0">Aften</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/aften" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_1_1">
+        <div class="item-label">
+          <label for="item_en_1_1_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_1_1" onchange="saveState('item_en_1_1_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_1_1">Droge mond, xerostomie</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/droge-mond-xerostomie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_1_2">
+        <div class="item-label">
+          <label for="item_en_1_1_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_1_2" onchange="saveState('item_en_1_1_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_1_2">Flatulentie</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/flatulentie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_1_3">
+        <div class="item-label">
+          <label for="item_en_1_1_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_1_3" onchange="saveState('item_en_1_1_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_1_3">Foetor ex ore</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/foetor-ex-ore" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_1_4">
+        <div class="item-label">
+          <label for="item_en_1_1_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_1_4" onchange="saveState('item_en_1_1_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_1_4">Gingivitis</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/gingivitis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_1_5">
+        <div class="item-label">
+          <label for="item_en_1_1_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_1_5" onchange="saveState('item_en_1_1_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_1_5">Preventie van maagcomplicaties door geneesmiddelgebruik</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/preventie-van-maagcomplicaties-door-geneesmiddelgebruik" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_1_6">
+        <div class="item-label">
+          <label for="item_en_1_1_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_1_6" onchange="saveState('item_en_1_1_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_1_6">Pruritus ani</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/pruritus-ani" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_1_7">
+        <div class="item-label">
+          <label for="item_en_1_1_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_1_7" onchange="saveState('item_en_1_1_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_1_7">Stomatitis angularis</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/stomatitis-angularis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_1_8">
+        <div class="item-label">
+          <label for="item_en_1_1_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_1_8" onchange="saveState('item_en_1_1_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_1_8">Worminfecties</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/worminfecties" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">F. Ogen</h3>
+        <span class="section-count" id="cnt_1_2">0/1</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_1_2_0">
+        <div class="item-label">
+          <label for="item_en_1_2_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_2_0" onchange="saveState('item_en_1_2_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_2_0">Hordeolum en chalazion</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/hordeolum-en-chalazion" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">K. Hart-vaatstelsel</h3>
+        <span class="section-count" id="cnt_1_3">0/2</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_1_3_0">
+        <div class="item-label">
+          <label for="item_en_1_3_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_3_0" onchange="saveState('item_en_1_3_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_3_0">Endocarditisprofylaxe</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/endocarditisprofylaxe" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_3_1">
+        <div class="item-label">
+          <label for="item_en_1_3_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_3_1" onchange="saveState('item_en_1_3_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_3_1">Fenomeen van Raynaud</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/fenomeen-van-raynaud" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">L. Bewegingsapparaat</h3>
+        <span class="section-count" id="cnt_1_4">0/2</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_1_4_0">
+        <div class="item-label">
+          <label for="item_en_1_4_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_4_0" onchange="saveState('item_en_1_4_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_4_0">Bursitis olecrani</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/bursitis-olecrani" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_4_1">
+        <div class="item-label">
+          <label for="item_en_1_4_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_4_1" onchange="saveState('item_en_1_4_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_4_1">Fasciitis plantaris</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/fasciitis-plantaris" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">N. Zenuwstelsel</h3>
+        <span class="section-count" id="cnt_1_5">0/2</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_1_5_0">
+        <div class="item-label">
+          <label for="item_en_1_5_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_5_0" onchange="saveState('item_en_1_5_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_5_0">Essentiële tremor</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/essentiele-tremor" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_5_1">
+        <div class="item-label">
+          <label for="item_en_1_5_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_5_1" onchange="saveState('item_en_1_5_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_5_1">Tetanusprofylaxe</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/tetanusprofylaxe" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">P. Psychische problemen</h3>
+        <span class="section-count" id="cnt_1_6">0/1</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_1_6_0">
+        <div class="item-label">
+          <label for="item_en_1_6_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_6_0" onchange="saveState('item_en_1_6_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_6_0">Stoppen met roken</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/stoppen-met-roken" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">R. Luchtwegen</h3>
+        <span class="section-count" id="cnt_1_7">0/1</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_1_7_0">
+        <div class="item-label">
+          <label for="item_en_1_7_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_7_0" onchange="saveState('item_en_1_7_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_7_0">Influenza</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/influenza" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">S. Huid en subcutis</h3>
+        <span class="section-count" id="cnt_1_8">0/18</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_1_8_0">
+        <div class="item-label">
+          <label for="item_en_1_8_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_0" onchange="saveState('item_en_1_8_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_0">Alopecia</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/alopecia" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_1">
+        <div class="item-label">
+          <label for="item_en_1_8_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_1" onchange="saveState('item_en_1_8_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_1">Brandwonden</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/brandwonden" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_2">
+        <div class="item-label">
+          <label for="item_en_1_8_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_2" onchange="saveState('item_en_1_8_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_2">Dermatitis perioralis</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/dermatitis-perioralis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_3">
+        <div class="item-label">
+          <label for="item_en_1_8_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_3" onchange="saveState('item_en_1_8_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_3">Gordelroos</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/gordelroos" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_4">
+        <div class="item-label">
+          <label for="item_en_1_8_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_4" onchange="saveState('item_en_1_8_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_4">Hidradenitis suppurativa</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/hidradenitis-suppurativa" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_5">
+        <div class="item-label">
+          <label for="item_en_1_8_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_5" onchange="saveState('item_en_1_8_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_5">Koortslip (herpes labialis)</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/koortslip-herpes-labialis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_6">
+        <div class="item-label">
+          <label for="item_en_1_8_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_6" onchange="saveState('item_en_1_8_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_6">Likdoorn, eksteroog, clavus</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/likdoorn-eksteroog-clavus" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_7">
+        <div class="item-label">
+          <label for="item_en_1_8_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_7" onchange="saveState('item_en_1_8_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_7">Luierdermatitis</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/luierdermatitis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_8">
+        <div class="item-label">
+          <label for="item_en_1_8_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_8" onchange="saveState('item_en_1_8_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_8">Melasma</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/melasma" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_9">
+        <div class="item-label">
+          <label for="item_en_1_8_9" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_9" onchange="saveState('item_en_1_8_9',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_9">Mollusca contagiosa</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/mollusca-contagiosa" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_10">
+        <div class="item-label">
+          <label for="item_en_1_8_10" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_10" onchange="saveState('item_en_1_8_10',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_10">Pruritus senilis</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/pruritus-senilis" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_11">
+        <div class="item-label">
+          <label for="item_en_1_8_11" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_11" onchange="saveState('item_en_1_8_11',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_11">Rosacea</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/rosacea" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_12">
+        <div class="item-label">
+          <label for="item_en_1_8_12" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_12" onchange="saveState('item_en_1_8_12',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_12">Scabiës</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/scabies" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_13">
+        <div class="item-label">
+          <label for="item_en_1_8_13" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_13" onchange="saveState('item_en_1_8_13',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_13">Seborroïsch eczeem</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/seborroisch-eczeem" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_14">
+        <div class="item-label">
+          <label for="item_en_1_8_14" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_14" onchange="saveState('item_en_1_8_14',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_14">Traumatische wonden en bijtwonden</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/traumatische-wonden-en-bijtwonden" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_15">
+        <div class="item-label">
+          <label for="item_en_1_8_15" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_15" onchange="saveState('item_en_1_8_15',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_15">Urticaria en angio-oedeem</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/urticaria-en-angio-oedeem" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_16">
+        <div class="item-label">
+          <label for="item_en_1_8_16" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_16" onchange="saveState('item_en_1_8_16',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_16">Wratten (voet- en handwratten)</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/wratten-voet-en-handwratten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_8_17">
+        <div class="item-label">
+          <label for="item_en_1_8_17" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_8_17" onchange="saveState('item_en_1_8_17',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_8_17">Zonneallergie</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/zonneallergie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+<div class="section">
+      <div class="section-header">
+        <h3 class="section-title">W/X/Y. Zwangerschap / anticonceptie / geslachtsorganen man en vrouw</h3>
+        <span class="section-count" id="cnt_1_9">0/4</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_1_9_0">
+        <div class="item-label">
+          <label for="item_en_1_9_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_9_0" onchange="saveState('item_en_1_9_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_9_0">Acute epididymitis bij volwassenen</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/acute-epididymitis-bij-volwassenen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_9_1">
+        <div class="item-label">
+          <label for="item_en_1_9_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_9_1" onchange="saveState('item_en_1_9_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_9_1">Dysmenorroe (→ Standaarden'e taşındı)</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/dysmenorroe" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_9_2">
+        <div class="item-label">
+          <label for="item_en_1_9_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_9_2" onchange="saveState('item_en_1_9_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_9_2">Infectieuze balanitis vanaf 12 jaar</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/infectieuze-balanitis-vanaf-12-jaar" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_1_9_3">
+        <div class="item-label">
+          <label for="item_en_1_9_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_1_9_3" onchange="saveState('item_en_1_9_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_1_9_3">Menstruatie-uitstel</span>
+          <a href="https://richtlijnen.nhg.org/behandelrichtlijnen/menstruatie-uitstel" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+  </div>
+<div class="tab-content" id="tab_2">
+    <div class="tab-stats">
+      <span class="stats-label">Tamamlanan:</span>
+      <span class="stats-val" id="stats_2">0 / 7</span>
+      <div class="progress-bar"><div class="progress-fill" id="prog_2" style="width:0%"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <h3 class="section-title">Medisch inhoudelijke NHG-Standpunten</h3>
+        <span class="section-count" id="cnt_2_0">0/7</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_2_0_0">
+        <div class="item-label">
+          <label for="item_en_2_0_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_2_0_0" onchange="saveState('item_en_2_0_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_2_0_0">Aanbevelingen voor het offlabel voorschrijven van geneesmiddelen</span>
+          <a href="https://richtlijnen.nhg.org/medisch-inhoudelijke-nhg-standpunten/aanbevelingen-voor-het-offlabel-voorschrijven-van" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_2_0_1">
+        <div class="item-label">
+          <label for="item_en_2_0_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_2_0_1" onchange="saveState('item_en_2_0_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_2_0_1">Diagnostiek en behandeling van familiaire hypercholesterolemie</span>
+          <a href="https://richtlijnen.nhg.org/medisch-inhoudelijke-nhg-standpunten/diagnostiek-en-behandeling-van-familiaire-hypercholesterolemie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_2_0_2">
+        <div class="item-label">
+          <label for="item_en_2_0_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_2_0_2" onchange="saveState('item_en_2_0_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_2_0_2">Diagnostiek van vitamine-B12-deficiëntie</span>
+          <a href="https://richtlijnen.nhg.org/medisch-inhoudelijke-nhg-standpunten/diagnostiek-van-vitamine-b12-deficientie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_2_0_3">
+        <div class="item-label">
+          <label for="item_en_2_0_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_2_0_3" onchange="saveState('item_en_2_0_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_2_0_3">Dragerschapsscreening</span>
+          <a href="https://richtlijnen.nhg.org/medisch-inhoudelijke-nhg-standpunten/dragerschapsscreening" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_2_0_4">
+        <div class="item-label">
+          <label for="item_en_2_0_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_2_0_4" onchange="saveState('item_en_2_0_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_2_0_4">Farmacogenetisch onderzoek in de huisartspraktijk</span>
+          <a href="https://richtlijnen.nhg.org/medisch-inhoudelijke-nhg-standpunten/farmacogenetisch-onderzoek-de-huisartspraktijk" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_2_0_5">
+        <div class="item-label">
+          <label for="item_en_2_0_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_2_0_5" onchange="saveState('item_en_2_0_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_2_0_5">Herhalen specialistische medicatie</span>
+          <a href="https://richtlijnen.nhg.org/medisch-inhoudelijke-nhg-standpunten/herhalen-specialistische-medicatie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_2_0_6">
+        <div class="item-label">
+          <label for="item_en_2_0_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_2_0_6" onchange="saveState('item_en_2_0_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_2_0_6">Medische check ups bij mensen zonder klachten</span>
+          <a href="https://richtlijnen.nhg.org/medisch-inhoudelijke-nhg-standpunten/medische-check-ups-bij-mensen-zonder-klachten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+  </div>
+<div class="tab-content" id="tab_3">
+    <div class="tab-stats">
+      <span class="stats-label">Tamamlanan:</span>
+      <span class="stats-val" id="stats_3">0 / 9</span>
+      <div class="progress-bar"><div class="progress-fill" id="prog_3" style="width:0%"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <h3 class="section-title">Landelijke Eerstelijns Samenwerkingsafspraken</h3>
+        <span class="section-count" id="cnt_3_0">0/9</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_3_0_0">
+        <div class="item-label">
+          <label for="item_en_3_0_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_3_0_0" onchange="saveState('item_en_3_0_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_3_0_0">Actueel medicatieoverzicht in de eerste lijn</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-eerstelijns-samenwerkingsafspraken/actueel-medicatieoverzicht-de-eerste-lijn" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_3_0_1">
+        <div class="item-label">
+          <label for="item_en_3_0_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_3_0_1" onchange="saveState('item_en_3_0_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_3_0_1">Anticiperende besluitvorming over reanimatie bij kwetsbare ouderen</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-eerstelijns-samenwerkingsafspraken/anticiperende-besluitvorming-over-reanimatie-bij" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_3_0_2">
+        <div class="item-label">
+          <label for="item_en_3_0_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_3_0_2" onchange="saveState('item_en_3_0_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_3_0_2">Geneesmiddelen en verkeersveiligheid</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-eerstelijns-samenwerkingsafspraken/geneesmiddelen-en-verkeersveiligheid" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_3_0_3">
+        <div class="item-label">
+          <label for="item_en_3_0_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_3_0_3" onchange="saveState('item_en_3_0_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_3_0_3">Incontinentie voor urine</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-eerstelijns-samenwerkingsafspraken/incontinentie-voor-urine" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_3_0_4">
+        <div class="item-label">
+          <label for="item_en_3_0_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_3_0_4" onchange="saveState('item_en_3_0_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_3_0_4">Kindermishandeling</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-eerstelijns-samenwerkingsafspraken/kindermishandeling" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_3_0_5">
+        <div class="item-label">
+          <label for="item_en_3_0_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_3_0_5" onchange="saveState('item_en_3_0_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_3_0_5">Laboratoriumdiagnostiek</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-eerstelijns-samenwerkingsafspraken/laboratoriumdiagnostiek" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_3_0_6">
+        <div class="item-label">
+          <label for="item_en_3_0_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_3_0_6" onchange="saveState('item_en_3_0_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_3_0_6">Ondervoeding</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-eerstelijns-samenwerkingsafspraken/ondervoeding" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_3_0_7">
+        <div class="item-label">
+          <label for="item_en_3_0_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_3_0_7" onchange="saveState('item_en_3_0_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_3_0_7">Organisatie van zorg bij chronische medicatie</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-eerstelijns-samenwerkingsafspraken/organisatie-van-zorg-bij-chronische-medicatie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_3_0_8">
+        <div class="item-label">
+          <label for="item_en_3_0_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_3_0_8" onchange="saveState('item_en_3_0_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_3_0_8">Radiologische diagnostiek</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-eerstelijns-samenwerkingsafspraken/radiologische-diagnostiek" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+  </div>
+<div class="tab-content" id="tab_4">
+    <div class="tab-stats">
+      <span class="stats-label">Tamamlanan:</span>
+      <span class="stats-val" id="stats_4">0 / 39</span>
+      <div class="progress-bar"><div class="progress-fill" id="prog_4" style="width:0%"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <h3 class="section-title">Multidisciplinaire richtlijnen</h3>
+        <span class="section-count" id="cnt_4_0">0/39</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_4_0_0">
+        <div class="item-label">
+          <label for="item_en_4_0_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_0" onchange="saveState('item_en_4_0_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_0">Anticiperende besluitvorming over reanimatie bij kwetsbare ouderen</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/anticiperende-besluitvorming-over-reanimatie-bij-kwetsbare-ouderen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_1">
+        <div class="item-label">
+          <label for="item_en_4_0_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_1" onchange="saveState('item_en_4_0_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_1">Aspecifieke lage rugklachten</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/aspecifieke-lage-rugklachten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_2">
+        <div class="item-label">
+          <label for="item_en_4_0_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_2" onchange="saveState('item_en_4_0_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_2">Astma</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/astma" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_3">
+        <div class="item-label">
+          <label for="item_en_4_0_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_3" onchange="saveState('item_en_4_0_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_3">Astma en zwangerschap</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/astma-en-zwangerschap" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_4">
+        <div class="item-label">
+          <label for="item_en_4_0_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_4" onchange="saveState('item_en_4_0_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_4">Cardiovasculair risicomanagement na een reproductieve aandoening</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/cardiovasculair-risicomanagement-na-een-reproductieve-aandoening" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_5">
+        <div class="item-label">
+          <label for="item_en_4_0_5" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_5" onchange="saveState('item_en_4_0_5',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_5">Cellulitis en erysipelas van de onderste extremiteiten</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/cellulitis-en-erysipelas-van-de-onderste-extremiteiten" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_6">
+        <div class="item-label">
+          <label for="item_en_4_0_6" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_6" onchange="saveState('item_en_4_0_6',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_6">Chronische Aangezichtspijn</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/chronische-aangezichtspijn" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_7">
+        <div class="item-label">
+          <label for="item_en_4_0_7" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_7" onchange="saveState('item_en_4_0_7',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_7">Chronische bekkenpijn</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/chronische-bekkenpijn" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_8">
+        <div class="item-label">
+          <label for="item_en_4_0_8" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_8" onchange="saveState('item_en_4_0_8',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_8">Contacteczeem</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/contacteczeem" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_9">
+        <div class="item-label">
+          <label for="item_en_4_0_9" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_9" onchange="saveState('item_en_4_0_9',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_9">Dehydratie en Vochttoediening</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/dehydratie-en-vochttoediening" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_10">
+        <div class="item-label">
+          <label for="item_en_4_0_10" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_10" onchange="saveState('item_en_4_0_10',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_10">Dyspneu in de palliatieve fase</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/dyspneu-de-palliatieve-fase" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_11">
+        <div class="item-label">
+          <label for="item_en_4_0_11" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_11" onchange="saveState('item_en_4_0_11',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_11">Leidraad organisatie en werkwijze van zorg voor patiënten met chronische pijn</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/leidraad-organisatie-en-werkwijze-van-zorg-voor-patienten-met" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_12">
+        <div class="item-label">
+          <label for="item_en_4_0_12" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_12" onchange="saveState('item_en_4_0_12',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_12">Lijkschouw</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/lijkschouw" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_13">
+        <div class="item-label">
+          <label for="item_en_4_0_13" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_13" onchange="saveState('item_en_4_0_13',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_13">Obesitas</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/obesitas" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_14">
+        <div class="item-label">
+          <label for="item_en_4_0_14" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_14" onchange="saveState('item_en_4_0_14',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_14">Obstipatie bij kinderen van 0 tot 18 jaar</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/obstipatie-bij-kinderen-van-0-tot-18-jaar" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_15">
+        <div class="item-label">
+          <label for="item_en_4_0_15" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_15" onchange="saveState('item_en_4_0_15',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_15">Omgaan met taalbarrières in de zorg en het sociaal domein</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/omgaan-met-taalbarrieres-de-zorg-en-het-sociaal-domein" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_16">
+        <div class="item-label">
+          <label for="item_en_4_0_16" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_16" onchange="saveState('item_en_4_0_16',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_16">Osteoporose en fractuurpreventie</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/osteoporose-en-fractuurpreventie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_17">
+        <div class="item-label">
+          <label for="item_en_4_0_17" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_17" onchange="saveState('item_en_4_0_17',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_17">Palliatieve zorg bij hartfalen</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/palliatieve-zorg-bij-hartfalen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_18">
+        <div class="item-label">
+          <label for="item_en_4_0_18" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_18" onchange="saveState('item_en_4_0_18',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_18">Perifeer Arterieel Vaatlijden</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/perifeer-arterieel-vaatlijden" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_19">
+        <div class="item-label">
+          <label for="item_en_4_0_19" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_19" onchange="saveState('item_en_4_0_19',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_19">Polyfarmacie bij ouderen</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/polyfarmacie-bij-ouderen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_20">
+        <div class="item-label">
+          <label for="item_en_4_0_20" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_20" onchange="saveState('item_en_4_0_20',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_20">Reumatoïde artritis en participatie (in arbeid)</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/reumatoide-artritis-en-participatie-arbeid" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_21">
+        <div class="item-label">
+          <label for="item_en_4_0_21" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_21" onchange="saveState('item_en_4_0_21',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_21">Seksueel Overdraagbare Aandoeningen (SOA)</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/seksueel-overdraagbare-aandoeningen-soa" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_22">
+        <div class="item-label">
+          <label for="item_en_4_0_22" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_22" onchange="saveState('item_en_4_0_22',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_22">Slaapproblemen in de laatste levensfase</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/slaapproblemen-de-laatste-levensfase" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_23">
+        <div class="item-label">
+          <label for="item_en_4_0_23" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_23" onchange="saveState('item_en_4_0_23',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_23">Verantwoord wisselen medicijnen</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/verantwoord-wisselen-medicijnen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_24">
+        <div class="item-label">
+          <label for="item_en_4_0_24" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_24" onchange="saveState('item_en_4_0_24',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_24">Vermoeidheid bij kanker in de palliatieve fase</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/vermoeidheid-bij-kanker-de-palliatieve-fase" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_25">
+        <div class="item-label">
+          <label for="item_en_4_0_25" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_25" onchange="saveState('item_en_4_0_25',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_25">Ziekte van Parkinson</span>
+          <a href="https://richtlijnen.nhg.org/multidisciplinaire-richtlijnen/ziekte-van-parkinson" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_26">
+        <div class="item-label">
+          <label for="item_en_4_0_26" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_26" onchange="saveState('item_en_4_0_26',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_26">Infectiepreventie in de huisartsen- en verloskundigenpraktijk</span>
+          <a href="https://richtlijnen.nhg.org/praktijkorganisatorische-richtlijnen/infectiepreventie-de-huisartsen-en-verloskundigenpraktijk" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_27">
+        <div class="item-label">
+          <label for="item_en_4_0_27" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_27" onchange="saveState('item_en_4_0_27',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_27">Blaar</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/blaar" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_28">
+        <div class="item-label">
+          <label for="item_en_4_0_28" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_28" onchange="saveState('item_en_4_0_28',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_28">Bloedneus</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/bloedneus" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_29">
+        <div class="item-label">
+          <label for="item_en_4_0_29" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_29" onchange="saveState('item_en_4_0_29',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_29">Coccygodynie</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/coccygodynie" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_30">
+        <div class="item-label">
+          <label for="item_en_4_0_30" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_30" onchange="saveState('item_en_4_0_30',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_30">Gestoten teen</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/gestoten-teen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_31">
+        <div class="item-label">
+          <label for="item_en_4_0_31" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_31" onchange="saveState('item_en_4_0_31',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_31">Globusgevoel</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/globusgevoel" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_32">
+        <div class="item-label">
+          <label for="item_en_4_0_32" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_32" onchange="saveState('item_en_4_0_32',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_32">Hematoom</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/hematoom" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_33">
+        <div class="item-label">
+          <label for="item_en_4_0_33" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_33" onchange="saveState('item_en_4_0_33',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_33">Hik</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/hik" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_34">
+        <div class="item-label">
+          <label for="item_en_4_0_34" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_34" onchange="saveState('item_en_4_0_34',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_34">Insectenbeet</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/insectenbeet" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_35">
+        <div class="item-label">
+          <label for="item_en_4_0_35" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_35" onchange="saveState('item_en_4_0_35',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_35">Likdoorn</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/likdoorn" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_36">
+        <div class="item-label">
+          <label for="item_en_4_0_36" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_36" onchange="saveState('item_en_4_0_36',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_36">Striae</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/striae" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_37">
+        <div class="item-label">
+          <label for="item_en_4_0_37" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_37" onchange="saveState('item_en_4_0_37',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_37">Subunguaal hematoom</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/subunguaal-hematoom" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_4_0_38">
+        <div class="item-label">
+          <label for="item_en_4_0_38" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_4_0_38" onchange="saveState('item_en_4_0_38',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_4_0_38">Verstopt oor</span>
+          <a href="https://richtlijnen.nhg.org/nhg-zelfzorgadvies/verstopt-oor" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+  </div>
+<div class="tab-content" id="tab_5">
+    <div class="tab-stats">
+      <span class="stats-label">Tamamlanan:</span>
+      <span class="stats-val" id="stats_5">0 / 5</span>
+      <div class="progress-bar"><div class="progress-fill" id="prog_5" style="width:0%"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <h3 class="section-title">Landelijke Transmurale Afspraken</h3>
+        <span class="section-count" id="cnt_5_0">0/5</span>
+      </div>
+      <ul class="item-list"><li class="item-row" id="row_item_en_5_0_0">
+        <div class="item-label">
+          <label for="item_en_5_0_0" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_5_0_0" onchange="saveState('item_en_5_0_0',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_5_0_0">Hartfalen</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-transmurale-afspraken/hartfalen" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_5_0_1">
+        <div class="item-label">
+          <label for="item_en_5_0_1" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_5_0_1" onchange="saveState('item_en_5_0_1',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_5_0_1">Landelijke Samenwerkingsafspraken jeugd-ggz</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-transmurale-afspraken/landelijke-samenwerkingsafspraken-jeugd-ggz" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_5_0_2">
+        <div class="item-label">
+          <label for="item_en_5_0_2" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_5_0_2" onchange="saveState('item_en_5_0_2',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_5_0_2">Landelijke ggz-samenwerkingsafspraken</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-transmurale-afspraken/landelijke-ggz-samenwerkingsafspraken" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_5_0_3">
+        <div class="item-label">
+          <label for="item_en_5_0_3" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_5_0_3" onchange="saveState('item_en_5_0_3',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_5_0_3">Stabiele angina pectoris</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-transmurale-afspraken/stabiele-angina-pectoris" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li>
+<li class="item-row" id="row_item_en_5_0_4">
+        <div class="item-label">
+          <label for="item_en_5_0_4" class="check-wrap">
+            <input type="checkbox" class="item-check" id="item_en_5_0_4" onchange="saveState('item_en_5_0_4',this.checked)">
+            <span class="checkmark"></span>
+          </label>
+          <span class="item-title" data-id="item_en_5_0_4">Vaginaal bloedverlies in de postmenopauze</span>
+          <a href="https://richtlijnen.nhg.org/landelijke-transmurale-afspraken/vaginaal-bloedverlies-de-postmenopauze" target="_blank" class="nhg-btn" title="NHG Richtlijn">&#x2197;</a>
+        </div>
+      </li></ul>
+    </div>
+  </div>
+  <button class="reset-btn" onclick="resetAll()">↺ Tüm tiklemeleri sıfırla</button>
+</div>
+
+</div><!-- /lib-en -->
+
 <script>
 'use strict';
 
@@ -2515,8 +4792,27 @@
 const LIBS = {
   nhg:   { id:'nhg',   name:'NHG-Richtlijnen',  db:'nhg_media_v1',   prefix:'nhg_',   tracker:'nhg_tracker_v3', c:'#1a6b3c', c2:'#2d9d60', manifest:'manifests/nhg.json' },
   acute: { id:'acute', name:'Het Acute Boekje', db:'acute_media_v1', prefix:'acute_', tracker:'acute_tracker_v1', c:'#9b1c31', c2:'#c0314c', manifest:'manifests/acute.json' },
-  bi:    { id:'bi',    name:'BI Dersleri',      db:'bi_media_v1',    prefix:'bi_',    tracker:'bi_tracker_v1',  c:'#23272e', c2:'#3a4049', manifest:'manifests/bi.json' }
+  bi:    { id:'bi',    name:'BI Dersleri',      db:'bi_media_v1',    prefix:'bi_',    tracker:'bi_tracker_v1',  c:'#23272e', c2:'#3a4049', manifest:'manifests/bi.json' },
+  en:    { id:'en',    name:'English Podcasts', db:'en_media_v1',    prefix:'en_',    tracker:'en_tracker_v1',  c:'#1e3a8a', c2:'#3b82f6', manifest:'manifests/nhg_en.json' }  /* nhg_en: bu EN kütüphanesi NHG başlıklarının İngilizcesi; ileride acute_en/bi_en manifestleri de aynı kalıpla gelir */
 };
+/* ==== TELIF / ERISIM — 2 KATMAN ====
+   LIBSIG : gomulu etiket. Bu dizgiyi ICERMEYEN .html / .zip / sunucu icerigi IMPORT EDILMEZ.
+            Kodda durur (teorik kirilabilir) ama yabancinin rasgele dosyasini eler + sunucu
+            icerigini dogrular. Eski dosyalari hub'daki "Etiketle" araci ile uyarla.
+   LIB_ADMIN_PASS : import + etiketleme araclarini SADECE O CIHAZDA acan LOKAL sifre. Sunucuya GITMEZ.
+   (Sunucu sifresi A = farkli bir deger; girilince localStorage'a yazilir, indirmede ?k= ile gonderilir,
+    dogrulugunu YALNIZ Cloudflare Worker bilir; uygulama dogru/yanlis bilmez.)
+   *** Asagidaki iki degeri KENDI gizli degerlerinle degistir. *** */
+const LIBSIG = 'iyicalismalar';
+/* SADECE GELİŞTİRME YEDEĞİ (file:// / Worker yokken). ÜRETİMDE KULLANILMAZ: gerçek yönetici
+   parolası sunucuda gizlidir (Worker secret ADMIN_PASS). LIB_AUTH_URL canlıyken bu değer hiç
+   sorulmaz; o yüzden burada gerçek parola TUTMA — dummy bırak. */
+const LIB_ADMIN_PASS = 'dev-admin';
+/* Sunucu (Cloudflare Worker) taban adresi — AÇILIŞ kod doğrulaması (mode=check) burada yapılır.
+   Worker'ı kurunca buraya KENDİ adresini yaz. İçinde 'HESABIN' geçtiği sürece açılış kapısı ATLANIR (geliştirme/no-op). */
+const LIB_AUTH_URL = 'https://kutuphane.toptaallanguage.workers.dev';
+/* Cihaz kimliği: bir koda kaç cihaz bağlı olduğunu görebilmek için (kişiye değil, kötüye-kullanım sinyali). */
+function _devId(){ try{ var d=localStorage.getItem('lib_dev'); if(!d){ d=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2,10)); localStorage.setItem('lib_dev',d);} return d; }catch(e){ return ''; } }
 let currentLib = 'nhg';
 function cur(){ return LIBS[currentLib]; }
 function curView(){ return document.getElementById('lib-'+currentLib); }
@@ -2639,6 +4935,15 @@ function _keys(dbName) {
     req.onsuccess=e=>res(e.target.result); req.onerror=e=>rej(e.target.error);
   }));
 }
+function _del(key,dbName) {
+  return _openDB(dbName).then(db => new Promise((res,rej) => {
+    const tx=db.transaction(_ST,'readwrite');
+    tx.objectStore(_ST).delete(key);
+    tx.oncomplete=res; tx.onerror=e=>rej(e.target.error);
+  }));
+}
+/* Gomulu etiket denetimi: icerik kutuphane imzasini tasiyor mu? (import + sunucu indirme kapisi) */
+function _hasSig(html){ return typeof html==='string' && html.indexOf(LIBSIG)>=0; }
 async function _isPrivate() {
   try { await _openDB(); return false; } catch { return true; }
 }
@@ -2659,8 +4964,20 @@ async function loadMediaState() {
     const has=hasLocal||hasRemote;
     el.classList.toggle('has-media',has);
     el.classList.toggle('needs-download', !hasLocal && hasRemote);
-    el.onclick = has ? ()=>openMedia(id) : null;
+    el.onclick = ()=>openMedia(id);   // her baslik: yereldeyse ac, degilse indir (anahtar yoksa openMedia 403'te key modali acar)
     if (hasLocal) el.title='Medyayi ac'; else if (hasRemote) el.title='Sunucudan indir ve ac'; else el.removeAttribute('title');
+    // KONTROL: 🗑 sil (yerel kopya) + 📤 ata (admin). 📤 = dosyayi BU basligin TAM id'siyle kaydet/indir (fuzzy YOK).
+    var _adm=document.body.classList.contains('admin');
+    var _ctr=(el.nextElementSibling&&el.nextElementSibling.classList&&el.nextElementSibling.classList.contains('media-ctrls'))?el.nextElementSibling:null;
+    if(hasLocal||_adm){
+      if(!_ctr){ _ctr=document.createElement('span'); _ctr.className='media-ctrls'; el.insertAdjacentElement('afterend',_ctr); }
+      var _h='';
+      if(hasLocal)_h+='<button type="button" class="media-del" title="Indirileni sil (ilerleme/yildiz korunur)">🗑</button>';
+      if(_adm)_h+='<button type="button" class="media-asg" title="Bu basliga dosya ata (yerel test + dogru-adli indir)">📤</button>';
+      _ctr.innerHTML=_h;
+      var _bd=_ctr.querySelector('.media-del'); if(_bd)_bd.onclick=(function(_id){return function(ev){ev.stopPropagation();deleteMedia(_id);};})(id);
+      var _ba=_ctr.querySelector('.media-asg'); if(_ba)_ba.onclick=(function(_id){return function(ev){ev.stopPropagation();assignFileToTitle(_id);};})(id);
+    } else if(_ctr){ _ctr.remove(); }
   });
   const b=view.querySelector('.media-badge');
   const nLocal=keys.filter(k=>k!=='__mappings__').length;
@@ -2686,7 +5003,11 @@ async function _loadManifest(){
 async function _downloadMedia(id, man){
   var ov=_showProg('Sunucudan indiriliyor...',2);
   try{
-    var r=await fetch(man.url);
+    var _key=''; try{_key=localStorage.getItem('lib_dl_key')||'';}catch(e){}
+    var _u=man.url+(man.url.indexOf('?')>=0?'&':'?')+'k='+encodeURIComponent(_key)+'&dev='+encodeURIComponent(_devId());
+    var r=await fetch(_u);
+    if(r.status===403||r.status===401){ _closeOv(ov); try{showKeyModal();}catch(e){} return null; }   // gecerli kod yok -> dogrudan sifre modalini ac
+    if(r.status===404){ _closeOv(ov); showMsg('İçerik Mevcut Değil','Bu içerik henüz mevcut değil. Daha sonra tekrar kontrol edin.'); return null; }
     if(!r.ok) throw new Error('HTTP '+r.status);
     var total=man.size || (+(r.headers.get('content-length'))||0), html;
     if(r.body && r.body.getReader && total>0){
@@ -2696,6 +5017,7 @@ async function _downloadMedia(id, man){
       var buf=new Uint8Array(received), off=0, c; for(c of chunks){ buf.set(c,off); off+=c.length; }
       html=new TextDecoder('utf-8').decode(buf);
     } else { _updProg(ov,'\u0130ndiriliyor...',60); html=await r.text(); }
+    if(!_hasSig(html)){ _closeOv(ov); showMsg('Geçersiz İçerik','İndirilen içerik kütüphane etiketi (LIBSIG) taşımıyor; reddedildi.'); return null; }
     _updProg(ov,'Kaydediliyor...',97);
     try{ await _put(id, html); }catch(e){ /* IDB yazilamadi (gizli mod) -> yine de ac */ }
     _closeOv(ov); loadMediaState();
@@ -2710,8 +5032,14 @@ async function _downloadMedia(id, man){
 async function openMedia(id) {
   let html; try { html=await _get(id); } catch(e) { showMsg('Hata','Medya acilamadi: '+e.message); return; }
   if (!html) {
-    // IDB'de yok -> manifest'te URL varsa sunucudan indir + cache'le (sonraki acilis offline)
-    const man=(_manifest[currentLib]||{})[id];
+    // IDB'de yok -> sunucudan indir + cache'le (sonraki acilis offline).
+    // Manifest varsa ONCE oradan (cok-host / boyut korunur); yoksa -> file://'da tarayici yerel json
+    // fetch'ini engeller, bu yuzden Worker URL'i DOGRUDAN kurulur (genManifest ile birebir) -> yerelde de indirir.
+    // Cok-sunucuya gecince temiz yol: tek istemci adresi kalir, dagitimi Worker arkada yapar -> burasi sabit.
+    let man=(_manifest[currentLib]||{})[id];
+    if ((!man || !man.url) && typeof LIB_AUTH_URL==='string' && LIB_AUTH_URL.indexOf('HESABIN')<0 && /^https?:/.test(LIB_AUTH_URL)) {
+      man={ url: LIB_AUTH_URL+'/?id='+encodeURIComponent(id), size:0 };
+    }
     if (man && man.url) { html = await _downloadMedia(id, man); if (!html) return; }
     else return;
   }
@@ -2832,6 +5160,10 @@ async function openMedia(id) {
       +'document.getElementById("_zbin").addEventListener("click",function(){_adjZ(0.1);});'
       +'document.getElementById("_zbout").addEventListener("click",function(){_adjZ(-0.1);});'
       +'document.getElementById("_zbl").addEventListener("click",function(){_z=1;document.documentElement.style.zoom=1;this.textContent="100%";_showToast("Zoom: 100%");});'
+      +'(function(){var _po=null,_iv=null;'                                                                   /* okuyucu (.pj-ov) aciksa parent yesil < butonunu gizlet */
+      +'function _rep(){var ov=document.querySelector(".pj-ov");try{window.parent.postMessage({pjReader:!!(ov&&ov.classList.contains("on"))},"*");}catch(e){}}'
+      +'function _w(){var ov=document.querySelector(".pj-ov");if(ov&&ov!==_po){_po=ov;new MutationObserver(_rep).observe(ov,{attributes:true,attributeFilter:["class"]});_rep();if(_iv){clearInterval(_iv);_iv=null;}}}'
+      +'_iv=setInterval(_w,400);_w();})();'
       +'})();<'+'/scr'+'ipt>';
     html=html.includes('</body>')?html.replace('</body>',_zInjD+'</body>'):html+_zInjD;
     document.getElementById('nhg-overlay-frame').srcdoc=html;
@@ -2895,12 +5227,14 @@ function triggerZipImport()   { const i=document.getElementById('zip-file-input'
 
 async function handleMediaFiles(fl) {
   if (!fl||!fl.length) return;
-  const items=_allItems(), pending=[];
+  const items=_allItems(), pending=[]; let _rej=0;
   for (const f of Array.from(fl)) {
     const html=await f.text();
+    if(!_hasSig(html)){ _rej++; continue; }   // etiketsiz dosya kabul edilmez
     const {item,score}=_matchFile(f.name,items);
     pending.push({filename:f.name,content:html,matched:item,score});
   }
+  if(!pending.length){ showMsg('Etiketsiz Dosya', (_rej||fl.length)+' dosya kütüphane etiketi (LIBSIG) içermiyor; içe aktarılmadı. Eski dosyaları hub\'daki 🏷 Etiketle ile uyarlayın.'); return; }
   _showMatchModal(pending,items);
 }
 
@@ -2913,13 +5247,15 @@ async function handleZipFile(file) {
     const zf=await readZip(buf);
     if (!zf.length) { _closeOv(ov); showMsg('Bos ZIP','ZIP icinde HTML bulunamadi.'); return; }
     _updProg(ov,'Eslestiriliyor...',70);
-    const items=_allItems(), pending=[];
+    const items=_allItems(), pending=[]; let _rej=0;
     for (const f of zf) {
       if (f.name.toLowerCase()==='manifest.json') continue;
+      if(!_hasSig(f.content)){ _rej++; continue; }   // etiketsiz dosya kabul edilmez
       const {item,score}=_matchFile(f.name,items);
       pending.push({filename:f.name,content:f.content,matched:item,score});
     }
     _closeOv(ov);
+    if(!pending.length){ showMsg('Etiketsiz ZIP', (_rej?_rej+' dosya':'ZIP içeriği')+' kütüphane etiketi (LIBSIG) içermiyor; içe aktarılmadı.'); return; }
     _showMatchModal(pending,items);
   } catch(e) { _closeOv(ov); showMsg('ZIP Hatasi',e.message); }
 }
@@ -2944,8 +5280,9 @@ function _showMatchModal(pending, items) {
   const hdr='<h3>📂 '+pending.length+' Dosya — Atamaları Kontrol Et</h3>'+
     '<p style="font-size:12px;margin:4px 0 8px">✅ Birebir &nbsp;|&nbsp; ⚠️ Yakın eşleşme &nbsp;|&nbsp; ❓ Manuel seç</p>'+
     '<div class="modal-btns" style="margin-bottom:10px"><button class="btn-primary" id="_ms_top">✅ Tümünü Onayla</button><button class="btn-secondary" id="_mc">İptal</button></div>';
+  const dlOpt=document.body.classList.contains('admin')?'<label style="display:flex;align-items:center;gap:6px;font-size:12px;margin:10px 0 0;justify-content:center;color:#475569"><input type="checkbox" id="_ms_dl"> Release için okunur adla (&lt;başlık&gt; (&lt;id&gt;).html) indir</label>':'';
   const ftr='<div class="modal-btns" style="margin-top:10px"><button class="btn-primary" id="_ms_bot">✅ Onayla</button><button class="btn-secondary" id="_mc2">İptal</button></div>';
-  const ov=showModal(hdr+'<div class="match-list">'+listHtml+'</div>'+ftr, async ov2=>{
+  const ov=showModal(hdr+'<div class="match-list">'+listHtml+'</div>'+dlOpt+ftr, async ov2=>{
     ov2.querySelectorAll('.match-sel').forEach(sel=>{
       const p=pending[+sel.dataset.idx];
       if (p.matched) for (const o of sel.options) { if(o.value===p.matched.id){o.selected=true;break;} }
@@ -2956,6 +5293,7 @@ function _showMatchModal(pending, items) {
         if(sel.value){const p=pending[+sel.dataset.idx];asgn.push({id:sel.value,content:p.content});nm[p.filename]=sel.value;}
       });
       if(!asgn.length){closeModal(ov2);return;}
+      const _wantDl=!!(ov2.querySelector('#_ms_dl')&&ov2.querySelector('#_ms_dl').checked);
       closeModal(ov2);
       await _saveMappings(nm);
       const pg=_showProg('Kaydediliyor... (0/'+asgn.length+')',0);
@@ -2966,8 +5304,13 @@ function _showMatchModal(pending, items) {
         _updProg(pg,'Kaydediliyor... ('+saved+'/'+asgn.length+')',(saved/asgn.length)*100);
       }
       _closeOv(pg);
+      if(_wantDl){   // Release için her dosyayi DOGRU barkod adiyla (<id>.html) indir
+        for(const {id,content} of asgn){
+          try{ var _u=URL.createObjectURL(new Blob([content],{type:'text/html'})); var _a=document.createElement('a'); _a.href=_u; _a.download=_dlName(id); document.body.appendChild(_a); _a.click(); _a.remove(); await new Promise(function(r){setTimeout(r,400);}); URL.revokeObjectURL(_u); }catch(e){}
+        }
+      }
       await loadMediaState();
-      showMsg('Tamamlandi',errs?(saved+' kaydedildi, '+errs+' hata.'):(saved+' medya basariyla yuklendi!'));
+      showMsg('Tamamlandi',(errs?(saved+' kaydedildi, '+errs+' hata.'):(saved+' medya yüklendi.'))+(_wantDl?' Doğru-adlı dosyalar indirildi — Release\'e yükle.':''));
     };
     ov2.querySelector('#_mc').onclick=()=>closeModal(ov2);
     ov2.querySelector('#_mc2').onclick=()=>closeModal(ov2);
@@ -2979,9 +5322,10 @@ function _showMatchModal(pending, items) {
 var _d='';
 
 function showTab(i) {
-  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  const tc=document.getElementById('tab_'+i),tb=document.getElementById('tbtn_'+i);
+  const v=curView()||document;  // görünüm-scoped: EN klonu aynı tab_ idlerini taşır, kendi alt-ağacında bulunur
+  v.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  v.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  const tc=v.querySelector('#tab_'+i),tb=v.querySelector('#tbtn_'+i);
   if(tc)tc.classList.add('active'); if(tb)tb.classList.add('active');
   try{window.scrollTo(0,0);}catch(e){}
 }
@@ -2993,7 +5337,19 @@ function saveState(id,checked) {
 }
 
 function updateCounts() {
-  if(currentLib!=='nhg')return;  // NHG'ye ozel sabit sayaclar; Acute/BI icerik gelince genellestirilecek
+  if(currentLib!=='nhg'){  // YAPI-TÜREVLİ jenerik sayaç (EN/Acute/BI): id'siz, sınıf üzerinden; NHG'nin sabit yolu AYNEN korunur
+    var v=curView(); if(!v)return;
+    v.querySelectorAll('.tab-content').forEach(function(tab){
+      var all=tab.querySelectorAll('.item-check'),done=tab.querySelectorAll('.item-check:checked');
+      var sv=tab.querySelector('.stats-val'); if(sv)sv.textContent=done.length+' / '+all.length;
+      var pf=tab.querySelector('.progress-fill'); if(pf)pf.style.width=(all.length?Math.round(done.length*100/all.length):0)+'%';
+      tab.querySelectorAll('.section').forEach(function(sec){
+        var a2=sec.querySelectorAll('.item-check'),d2=sec.querySelectorAll('.item-check:checked');
+        var cc=sec.querySelector('.section-count'); if(cc)cc.textContent=d2.length+'/'+a2.length;
+      });
+    });
+    return;
+  }
   {
       {
         const done = ['item_0_0_0','item_0_0_1','item_0_0_2'].filter(id => { const c = document.getElementById(id); return c && c.checked; }).length;
@@ -3184,6 +5540,129 @@ function showMsg(title,msg){
   });
 }
 
+/* ============ İNDİRME KODU / YÖNETİCİ (tek kutu, İKİSİ DE SUNUCUDA doğrulanır) ============
+   Girilen değer önce kişiye-özel KOD olarak sorulur (mode=check) -> doğruysa lib_dl_key (indirme yetkisi).
+   Değilse YÖNETİCİ parolası olarak sorulur (mode=admin, Worker secret ADMIN_PASS) -> doğruysa o cihazda admin.
+   Hiçbir parola dosyada DEĞİL — geliştirme (file://, HESABIN) modunda yerel LIB_ADMIN_PASS'e düşülür. */
+function showKeyModal(){
+  var has=''; try{has=localStorage.getItem('lib_dl_key')||'';}catch(e){}
+  var admin=document.body.classList.contains('admin');
+  var h='<h3>🔑 Erişim</h3>'
+    +'<p style="font-size:12.5px;line-height:1.55;color:#475569;margin:2px 0 8px">İndirme kodunu (kişiye özel) veya yönetici parolasını girin. Doğruluk yalnız sunucuda denetlenir.</p>'
+    +'<input id="_lk_in" type="password" autocomplete="off" autocapitalize="off" placeholder="Kod / parola" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #cbd5e0;border-radius:9px;font-size:15px;margin:2px 0 4px">'
+    +'<div style="font-size:11.5px;color:#94a3b8;margin-bottom:4px">'+(has?'✓ Bu cihazda kayıtlı bir indirme kodu var.':'Henüz indirme kodu girilmedi.')+(admin?' · 🛠 Yönetici açık':'')+'</div>'
+    +'<div id="_lk_msg" style="font-size:12px;color:#dc2626;min-height:16px;margin-bottom:8px"></div>'
+    +'<div class="modal-btns"><button class="btn-primary" id="_lk_ok">Kaydet</button>'
+      +(has?'<button class="btn-secondary" id="_lk_clr">Kodu Sil</button>':'')
+      +(admin?'<button class="btn-secondary" id="_lk_xadm">Yöneticiyi Kapat</button>':'')
+      +'<button class="btn-secondary" id="_lk_cl">Kapat</button></div>';
+  showModal(h,function(o){
+    var inp=o.querySelector('#_lk_in'), msg=o.querySelector('#_lk_msg');
+    o.querySelector('#_lk_ok').onclick=async function(){
+      var v=(inp.value||'').trim(); if(!v){closeModal(o);return;}
+      var _live=(typeof LIB_AUTH_URL==='string' && LIB_AUTH_URL.indexOf('HESABIN')<0 && /^https?:/.test(LIB_AUTH_URL));
+      var btn=this; btn.disabled=true; if(msg)msg.textContent='';
+      if(!_live){
+        // Geliştirme (file:// / Worker yok): admin yerel sabite düşer, kod yerelde kaydedilir.
+        if(v===LIB_ADMIN_PASS){ document.body.classList.add('admin'); try{localStorage.setItem('lib_admin','1');}catch(e){} closeModal(o); showMsg('Yönetici Modu','İçe aktarma ve etiketleme araçları bu cihazda açıldı (geliştirme).'); return; }
+        try{localStorage.setItem('lib_dl_key',v);}catch(e){} closeModal(o); loadMediaState(); showMsg('Kaydedildi','İndirme kodu bu cihaza kaydedildi (geliştirme).'); return;
+      }
+      try{
+        // 1) kişiye özel indirme kodu mu?
+        var rc=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=check&k='+encodeURIComponent(v)+'&dev='+encodeURIComponent(_devId()),{cache:'no-store'});
+        if(rc.ok){ try{localStorage.setItem('lib_dl_key',v);}catch(e){} closeModal(o); loadMediaState(); showMsg('Kaydedildi','İndirme kodu doğrulandı ve bu cihaza kaydedildi.'); return; }
+        // 2) yönetici parolası mı?
+        var ra=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=admin&a='+encodeURIComponent(v),{cache:'no-store'});
+        if(ra.ok){ document.body.classList.add('admin'); try{localStorage.setItem('lib_admin','1');}catch(e){} closeModal(o); showMsg('Yönetici Modu','Sunucu doğruladı — araçlar bu cihazda açıldı.'); return; }
+        if(msg)msg.textContent='Geçersiz kod veya parola.'; btn.disabled=false;
+      }catch(e){ if(msg)msg.textContent='Sunucuya ulaşılamadı.'; btn.disabled=false; }
+    };
+    var c=o.querySelector('#_lk_clr'); if(c)c.onclick=function(){ try{localStorage.removeItem('lib_dl_key');}catch(e){} closeModal(o); showMsg('Silindi','Kayıtlı indirme kodu silindi.'); };
+    var x=o.querySelector('#_lk_xadm'); if(x)x.onclick=function(){ document.body.classList.remove('admin'); try{localStorage.removeItem('lib_admin');}catch(e){} closeModal(o); };
+    o.querySelector('#_lk_cl').onclick=function(){closeModal(o);};
+    try{inp.focus();}catch(e){}
+  });
+}
+
+/* ============ ETIKETLEYICI (admin): eski/harici HTML'e LIBSIG gom ============ */
+function showTagger(){ var i=document.getElementById('_tag_input'); if(i){ i.value=''; i.click(); } }
+async function handleTagFile(fl){
+  if(!fl||!fl.length) return;
+  var done=0,skip=0;
+  for(const f of Array.from(fl)){
+    var html=await f.text();
+    if(_hasSig(html)){ skip++; continue; }
+    var tag='<!--'+LIBSIG+'-->';
+    var out=html.indexOf('</head>')>=0 ? html.replace('</head>',tag+'</head>') : tag+html;
+    var u=URL.createObjectURL(new Blob([out],{type:'text/html'}));
+    var a=document.createElement('a'); a.href=u; a.download=f.name.replace(/(\.html?)?$/i,'')+' [lib].html';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout((function(uu){return function(){URL.revokeObjectURL(uu);};})(u),5000); done++;
+  }
+  showMsg('Etiketleme', done+' dosya etiketlendi'+(skip?(', '+skip+' zaten etiketliydi'):'')+'. Etiketli dosyaları artık "Medya Ekle / ZIP" ile içe aktarabilirsiniz.');
+}
+
+/* ============ INDIRILENI SIL — ilerleme/yildiz KORUNUR (ayri localStorage) ============ */
+function deleteMedia(id){
+  var h='<h3>🗑 İndirileni Sil</h3><p style="font-size:13px;line-height:1.55;color:#475569">Bu içeriğin <b>indirilmiş kopyası</b> cihazdan silinecek; <b>ilerleme ve yıldızlılar korunur</b>. İstediğinde tekrar indirebilirsin.</p><div class="modal-btns"><button class="btn-primary" id="_dm_y">Sil</button><button class="btn-secondary" id="_dm_n">Vazgeç</button></div>';
+  showModal(h,function(o){
+    o.querySelector('#_dm_n').onclick=function(){closeModal(o);};
+    o.querySelector('#_dm_y').onclick=async function(){
+      closeModal(o);
+      try{ await _del(id, cur().db); }catch(e){ showMsg('Hata','Silinemedi: '+((e&&e.message)||e)); return; }
+      await loadMediaState();
+      showMsg('Silindi','İndirilen içerik silindi. İlerleme ve yıldızlılar korundu — tekrar indirince geri gelir.');
+    };
+  });
+}
+
+/* ===== BAŞLIĞA DOSYA ATA (admin) — FUZZY YOK: dosya, tıklanan başlığın TAM id'siyle bağlanır =====
+   Seçtiğin dosya: (a) yerelde test için IDB'ye <id> ile yazılır, (b) Release'e yüklemek üzere "<başlık> (<id>).html" olarak iner.
+   Hangi başlığın 📤'sine bastıysan id O'dur → yanlış eşleşme yapısal olarak imkânsız. */
+var _assignId=null;
+/* İndirme dosya adı: "<başlık> (<id>).html" → GitHub Release'de başlıktan tanınır,
+   Worker parantez içindeki id ile bulur. Başlık bulunamazsa "<id>.html"e düşer. */
+function _dlName(id){
+  var t='';
+  try{ var el=document.querySelector('.item-title[data-id="'+id+'"]'); if(el) t=(el.textContent||'').replace(/[☁️\s]+$/,'').trim(); }catch(e){}
+  t=t.replace(/[\\\/:*?"<>|()]+/g,' ').replace(/\s+/g,' ').trim().slice(0,80);
+  return t ? (t+' ('+id+').html') : (id+'.html');
+}
+function assignFileToTitle(id){ _assignId=id; var i=document.getElementById('_assign_input'); if(i){ i.value=''; i.click(); } }
+async function _handleAssign(fl){
+  if(!fl||!fl.length||!_assignId) return;
+  var id=_assignId, f=fl[0], html='';
+  try{ html=await f.text(); }catch(e){ showMsg('Hata','Dosya okunamadı.'); return; }
+  if(!_hasSig(html)){ showMsg('Etiketsiz Dosya','Bu dosya kütüphane etiketi (LIBSIG) içermiyor. Önce hub\'daki 🏷 Etiketle ile etiketle.'); return; }
+  try{ await _put(id, html); }catch(e){ /* IDB yazilamazsa yine de indir */ }
+  // Release'e yüklemek için DOĞRU adla indir
+  var _fn=_dlName(id);
+  var u=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+  var a=document.createElement('a'); a.href=u; a.download=_fn; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(u);},5000);
+  await loadMediaState();
+  showMsg('Atandı','Bu başlığa bağlandı.\n• Yerelde test edebilirsin (başlığa tıkla).\n• Release\'e "'+_fn+'" adıyla yükle (bu dosya indi).');
+}
+
+/* ===== MANIFEST ÜRET (admin) — id'leri elle yazmadan; başlık listesinden otomatik ===== */
+function genManifest(){
+  if(typeof LIB_AUTH_URL!=='string' || LIB_AUTH_URL.indexOf('HESABIN')>=0){
+    showMsg('Önce Worker Adresi','LIB_AUTH_URL hâlâ placeholder (HESABIN). Önce Worker adresini yaz, sonra manifest üret.'); return;
+  }
+  var made=[];
+  Object.keys(LIBS).forEach(function(k){
+    var c=document.getElementById('lib-'+k); if(!c) return;
+    var items={};
+    c.querySelectorAll('.item-title').forEach(function(el){ var id=el.dataset.id; if(id) items[id]={url:LIB_AUTH_URL+'/?id='+encodeURIComponent(id), size:0}; });
+    if(!Object.keys(items).length) return; // boş kütüphane atla
+    var json=JSON.stringify({items:items},null,2);
+    var u=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+    var a=document.createElement('a'); a.href=u; a.download=k+'.json'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(u);},5000); made.push(k+'.json');
+  });
+  showMsg(made.length?'Manifest Üretildi':'İçerik Yok', made.length?(made.join(', ')+' indirildi. manifests/ klasörüne koy.'):'Listede başlık bulunamadı.');
+}
+
 function copySyncCode() {
   var _pp=cur().prefix+'pos_', _sp=cur().prefix+'stars_';
   var ids=Array.from((curView()||document).querySelectorAll('.item-check:checked')).map(c=>c.id).join(',');
@@ -3308,12 +5787,49 @@ function resetAll() {
   );
 }
 
+/* ===== AÇILIŞ KAPISI: tek sabit HOŞGELDİN parolası (sunucuda gizli — Worker secret WELCOME_PASS) =====
+   İlk girişte Worker'a mode=welcome ile sorar; doğruysa bayrak saklar, sonrası OFFLINE direkt hub.
+   NOT: Bu yalnız açılış kapısıdır. İçerik indirme AYRI kişiye-özel kod ister (🔑 modal → mode=check). */
+function showCodeGate(){
+  var ov=document.createElement('div'); ov.id='_codegate';
+  ov.style.cssText='position:fixed;inset:0;z-index:200000;background:linear-gradient(160deg,#0f1419,#1b2430);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:max(40px,env(safe-area-inset-top,0px)) 24px max(40px,env(safe-area-inset-bottom,0px));text-align:center';
+  ov.innerHTML='<div style="font-size:2.2rem;margin-bottom:12px">📚</div>'
+    +'<div style="color:#e8edf2;font-size:1.25rem;font-weight:700;margin-bottom:6px">Kütüphane Arşivi</div>'
+    +'<div style="color:#94a3b8;font-size:.9rem;margin-bottom:22px;max-width:300px;line-height:1.5">Hoşgeldin parolasını girin. (İlk girişte internet gerekir.)</div>'
+    +'<div style="position:relative;width:100%;max-width:280px;margin-bottom:12px"><input id="_cg_in" type="password" autocomplete="off" autocapitalize="off" placeholder="Hoşgeldin parolası" style="width:100%;box-sizing:border-box;padding:13px 42px 13px 13px;border:1px solid #33405a;border-radius:10px;font-size:16px;background:#0c1118;color:#e8edf2;text-align:center"><button id="_cg_eye" type="button" tabindex="-1" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;font-size:16px;padding:0;line-height:1">👁</button></div>'
+    +'<button id="_cg_ok" style="width:100%;max-width:280px;padding:13px;border:none;border-radius:10px;background:#2d9d60;color:#fff;font-size:1rem;font-weight:700;cursor:pointer">Giriş</button>'
+    +'<div id="_cg_msg" style="color:#f87171;font-size:.82rem;margin-top:12px;min-height:18px"></div>';
+  document.body.appendChild(ov);
+  var inp=ov.querySelector('#_cg_in'), btn=ov.querySelector('#_cg_ok'), msg=ov.querySelector('#_cg_msg');
+  var eye=ov.querySelector('#_cg_eye');
+  eye.onclick=function(){inp.type=inp.type==='password'?'text':'password';eye.textContent=inp.type==='password'?'👁':'🙈';};
+  function done(){ try{document.body.removeChild(ov);}catch(e){} showHub(); }
+  btn.onclick=async function(){
+    var v=(inp.value||'').trim(); if(!v){return;}
+    btn.disabled=true; btn.textContent='Kontrol ediliyor...'; msg.textContent='';
+    try{
+      var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=welcome&w='+encodeURIComponent(v);
+      var r=await fetch(u,{cache:'no-store'});
+      if(r.ok){ try{localStorage.setItem('lib_welcome_ok','1');}catch(e){} done(); return; }
+      if(r.status===403){ msg.textContent='Hoşgeldin parolası yanlış.'; }
+      else { msg.textContent='Doğrulanamadı (HTTP '+r.status+').'; }
+    }catch(e){ msg.textContent='İnternet yok veya sunucuya ulaşılamadı.'; }
+    btn.disabled=false; btn.textContent='Giriş';
+  };
+  inp.addEventListener('keydown',function(e){ if(e.key==='Enter')btn.click(); });
+  try{inp.focus();}catch(e){}
+}
 function initApp() {
   if(initApp._done)return; initApp._done=true;
+  try{ if(localStorage.getItem('lib_admin')==='1') document.body.classList.add('admin'); }catch(e){}
   // iOS'ta podcast location.href ile acilir -> geri donunce sayfa yeniden yuklenir.
   // window.name'de hangi kütüphaneden gelindigi var (d.lib) -> dogrudan o kütüphaneye don (hub'a dusme).
   var _ret=null;
   try{ var d=JSON.parse(window.name||'{}'); if(d&&d.lib&&LIBS[d.lib]&&d.id)_ret=d.lib; }catch(e){}
+  // ACILIS KAPISI: kod dogrulanmadan hub yok. iOS geri-donus (_ret) zaten icerideydi -> atla. Worker ayarli degilse atla.
+  var _gateOk=false; try{_gateOk=localStorage.getItem('lib_welcome_ok')==='1';}catch(e){}
+  var _gateOn=(typeof LIB_AUTH_URL==='string' && LIB_AUTH_URL.indexOf('HESABIN')<0 && /^https?:/.test(LIB_AUTH_URL));
+  if(!_ret && _gateOn && !_gateOk){ showCodeGate(); return; }
   if(_ret) enterLib(_ret); else showHub();   // loadState/loadMediaState enterLib'de calisir
 }
 document.addEventListener('DOMContentLoaded',function(){
@@ -3365,10 +5881,12 @@ document.addEventListener('DOMContentLoaded',function(){
 window.addEventListener('message',function(e){
   if(e.data&&e.data.nhg&&e.data.id&&e.data.t>0)localStorage.setItem(cur().prefix+'pos_'+e.data.id,e.data.t);
   if(e.data&&e.data.nhg_stars&&e.data.id&&e.data.stars){try{localStorage.setItem(cur().prefix+'stars_'+e.data.id,JSON.stringify(e.data.stars));}catch(_e){}}
+  if(e.data&&typeof e.data.pjReader!=='undefined'){document.body.classList.toggle('pj-reading',!!e.data.pjReader);}   // okuyucu acik -> yesil < gizle
 });
 document.addEventListener('DOMContentLoaded',function(){
   document.getElementById('nhg-overlay-close').addEventListener('click',function(){
     document.getElementById('nhg-overlay').classList.remove('active');
+    document.body.classList.remove('pj-reading');
     document.getElementById('nhg-overlay-frame').srcdoc='';
     if(_blobUrl){URL.revokeObjectURL(_blobUrl);_blobUrl=null;}
   });
@@ -3387,6 +5905,66 @@ function adjZoom(d){
   _updateZoomLabel();
 }
 _updateZoomLabel();
+
+/* ---- PWA GÜNCELLEME BANNER ---- */
+var _LIB_VER_KEY='_lib_build_ver';
+async function _checkLibUpdate(){
+  if(location.protocol==='file:')return;
+  if(!navigator.onLine)return;
+  try{
+    var r=await fetch(location.href,{method:'HEAD',cache:'no-store'});
+    var ts=r.headers.get('last-modified')||r.headers.get('etag')||'';
+    if(!ts)return;
+    var stored='';try{stored=localStorage.getItem(_LIB_VER_KEY)||'';}catch(e){}
+    if(!stored){try{localStorage.setItem(_LIB_VER_KEY,ts);}catch(e){}return;}
+    if(stored===ts)return;
+    _showUpdateBanner(ts);
+  }catch(e){}
+}
+function _showUpdateBanner(newTs){
+  if(document.getElementById('_lib_upd_b'))return;
+  var b=document.createElement('div');b.id='_lib_upd_b';
+  b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:999998;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;font-size:14px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);gap:12px;-webkit-font-smoothing:antialiased';
+  b.innerHTML='<span>Yeni bir sürüm mevcut.</span><button id="_lib_upd_btn" style="background:white;color:#1d4ed8;border:none;border-radius:6px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">Yenile</button>';
+  document.body.appendChild(b);
+  document.getElementById('_lib_upd_btn').onclick=function(){
+    try{localStorage.setItem(_LIB_VER_KEY,newTs);}catch(e){}
+    location.href=location.href.split('?')[0]+'?_v='+Date.now()+(location.hash||'');
+  };
+}
+setTimeout(_checkLibUpdate,2500);
+/* PWA arka plandan öne gelince de kontrol et (iOS PWA günlerce canlı kalır, cold-start beklenmez) */
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') _checkLibUpdate(); });
+
+/* ---- PWA KURULUM BUTONU ---- */
+var _pwaEvt=null;
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault();_pwaEvt=e;
+  var btn=document.getElementById('_hub_install_btn');
+  if(btn)btn.style.display='inline-block';
+});
+window.addEventListener('appinstalled',function(){
+  _pwaEvt=null;
+  var btn=document.getElementById('_hub_install_btn');
+  if(btn)btn.style.display='none';
+});
+function _hubInstallPWA(){
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  var isSA=window.matchMedia('(display-mode:standalone)').matches||(navigator.standalone===true);
+  if(isSA){showMsg('Zaten kurulu','Bu uygulama zaten ana ekrana eklenmiş.');return;}
+  if(_pwaEvt){
+    _pwaEvt.prompt();
+    _pwaEvt.userChoice.then(function(r){if(r.outcome==='accepted'){_pwaEvt=null;var btn=document.getElementById('_hub_install_btn');if(btn)btn.style.display='none';}});
+    return;
+  }
+  if(isIOS){showMsg('Ana Ekrana Ekle','Safari\'de alttaki Paylaş ↑ butonuna dokunun → "Ana Ekrana Ekle" seçin.');}
+  else{showMsg('Ana Ekrana Ekle','Tarayıcı adres çubuğundaki kurulum simgesine (⊕) tıklayın.');}
+}
+document.addEventListener('DOMContentLoaded',function(){
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  var isSA=window.matchMedia('(display-mode:standalone)').matches||(navigator.standalone===true);
+  if(isIOS&&!isSA){var btn=document.getElementById('_hub_install_btn');if(btn)btn.style.display='inline-block';}
+});
 </script>
 <div id="nhg-overlay"><div id="nhg-overlay-bar"><span></span><button id="nhg-overlay-close" title="Kapat">‹</button></div><iframe id="nhg-overlay-frame"></iframe></div>
 <div id="_zoom_wrap" style="position:fixed;left:0;top:50%;transform:translateY(-50%) translateX(calc(-100% + 13px));display:none;flex-direction:row;align-items:center;z-index:9998;transition:transform .3s cubic-bezier(.4,0,.2,1)">
