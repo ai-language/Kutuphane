@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "note": "Het Acute Boekje icin sunucu indirme haritasi. Icerik (basliklar) sonraki adimda eklenecek; o zaman item ID'leri burada kullanilacak. Bos = no-op.",
+  "_example": {
+    "aitem_0_0_0": { "url": "https://ornek-host2.netlify.app/acute-buikpijn.html", "size": 20120000 }
+  },
+  "items": {}
+}
