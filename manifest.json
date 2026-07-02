@@ -1,12 +1,21 @@
 {
-  "name": "NHG Kütüphane",
-  "short_name": "NHG",
+  "name": "Kütüphane Arşivi",
+  "short_name": "Kütüphane",
   "id": "nhg-kutuphanesi",
-  "start_url": "/K-t-phane/",
-  "scope": "/K-t-phane/",
-  "display": "minimal-ui",
-  "background_color": "#f0f4f8",
+  "description": "NHG-Richtlijnen, Het Acute Boekje ve BI Dersleri arşivi",
+  "display": "standalone",
+  "orientation": "any",
+  "start_url": "./",
+  "scope": "./",
+  "background_color": "#0f1419",
   "theme_color": "#1a6b3c",
   "lang": "nl",
-  "icons": []
+  "icons": [
+    {
+      "src": "lib_icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
