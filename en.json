@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "note": "English Podcasts icin sunucu indirme haritasi. ID semasi item_en_* (NL ile CAKISMAZ). Bos = no-op (manuel medya import calisir).",
+  "_example": {
+    "item_en_0_0_0": { "url": "https://github.com/.../releases/download/.../Title%20(item_en_0_0_0).html", "size": 15000000 }
+  },
+  "items": {}
+}
