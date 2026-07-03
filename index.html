@@ -6038,14 +6038,20 @@ window.addEventListener('appinstalled',function(){
 function _hubInstallPWA(){
   var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
   var isSA=window.matchMedia('(display-mode:standalone)').matches||(navigator.standalone===true);
-  if(isSA){showMsg('Zaten kurulu','Bu uygulama zaten ana ekrana eklenmiş.');return;}
+  if(isSA){showMsg('Zaten kurulu','Bu uygulama zaten ana ekrandan/uygulama olarak çalışıyor.');return;}
   if(_pwaEvt){
+    /* Masaüstü/Android: NATIVE kurulum penceresi direkt açılır — talimat yok */
     _pwaEvt.prompt();
     _pwaEvt.userChoice.then(function(r){if(r.outcome==='accepted'){_pwaEvt=null;var btn=document.getElementById('_hub_install_btn');if(btn)btn.style.display='none';}});
     return;
   }
-  if(isIOS){showMsg('Ana Ekrana Ekle','Safari\'de alttaki Paylaş ↑ butonuna dokunun → "Ana Ekrana Ekle" seçin.');}
-  else{showMsg('Ana Ekrana Ekle','Adres çubuğundaki kurulum simgesine (⊕) tıklayın.\n\nSimge yoksa uygulama zaten kurulu olabilir (adres çubuğunda "uygulamada aç" görünür). Tamamen kaldırmak için: uygulama penceresinde ⋮ → Kaldır — sonra bu buton yeniden kurabilir.');}
+  if(isIOS&&navigator.share){
+    /* iOS: Paylaş sayfasını DİREKT aç → listede aşağıda "Ana Ekrana Ekle" (talimat modali yerine gerçek pencere) */
+    navigator.share({title:document.title,url:location.href}).catch(function(){});
+    return;
+  }
+  if(isIOS){showMsg('Ana Ekrana Ekle','1) Safari\'nin altındaki <b>Paylaş</b> düğmesine dokun (kare+yukarı ok)<br>2) Açılan listede <b>aşağı kaydır</b><br>3) <b>"Ana Ekrana Ekle"</b>ye dokun');return;}
+  showMsg('Uygulama Olarak Kur','Chrome/Edge adres çubuğunun <b>sağındaki kurulum simgesine</b> tıklayın (ekran+aşağı ok) veya menü <b>⋮ → "Yükle"</b>.<br><br>Kurulum simgesi yoksa uygulama <b>zaten kuruludur</b> — adres çubuğundaki simgeyle uygulamada açabilirsiniz.<br>Kaldırmak: uygulama penceresinde <b>⋮ → Kaldır</b> (masaüstü kısayolunu silmek uygulamayı kaldırmaz).');
 }
 document.addEventListener('DOMContentLoaded',function(){
   /* Buton kuralı: PWA (standalone) İÇİNDE gizli; tarayıcıda HER ZAMAN görünür (iOS+masaüstü).
