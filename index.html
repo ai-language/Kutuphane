@@ -6036,7 +6036,10 @@ window.addEventListener('appinstalled',function(){
   if(btn)btn.style.display='none';
 });
 function _hubInstallPWA(){
-  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  /* iOS tespiti UA-sniffing DEĞİL yetenek-tabanlı: "Masaüstü Sitesini İste" modunda iPhone/iPad kendini
+     "Macintosh" tanıtır (UA testi kaçırır → kullanıcı masaüstü uyarısı gördü, 2026-07-03) — ama gerçek
+     Mac'te maxTouchPoints=0, iPhone/iPad'de >1. İkisi birlikte kesin yakalar. */
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(/macintosh/i.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
   var isSA=window.matchMedia('(display-mode:standalone)').matches||(navigator.standalone===true);
   if(isSA){showMsg('Zaten kurulu','Bu uygulama zaten ana ekrandan/uygulama olarak çalışıyor.');return;}
   if(_pwaEvt){
