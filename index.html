@@ -6048,12 +6048,10 @@ function _hubInstallPWA(){
     _pwaEvt.userChoice.then(function(r){if(r.outcome==='accepted'){_pwaEvt=null;var btn=document.getElementById('_hub_install_btn');if(btn)btn.style.display='none';}});
     return;
   }
-  if(isIOS&&navigator.share){
-    /* iOS: Paylaş sayfasını DİREKT aç → listede aşağıda "Ana Ekrana Ekle" (talimat modali yerine gerçek pencere) */
-    navigator.share({title:document.title,url:location.href}).catch(function(){});
-    return;
-  }
-  if(isIOS){showMsg('Ana Ekrana Ekle','1) Safari\'nin altındaki <b>Paylaş</b> düğmesine dokun (kare+yukarı ok)<br>2) Açılan listede <b>aşağı kaydır</b><br>3) <b>"Ana Ekrana Ekle"</b>ye dokun');return;}
+  /* iOS NİHAİ KARAR (2026-07-03): navigator.share KULLANILMAZ — açtığı pencere KISITLI ve "Ana Ekrana Ekle"
+     satırı YOK (o satır yalnız Safari'nin KENDİ paylaş menüsünde; Apple o menüyü JS ile açtırmaz, programatik
+     ekleme de yasak). iOS'ta mümkün olan tek şey net talimat. Android'de sorun yok: _pwaEvt native kurar. */
+  if(isIOS){showMsg('Ana Ekrana Ekle','iPhone, sitelerin kendini ana ekrana eklemesine izin vermez — 3 dokunuş sizde:<br><br>1) Safari alt çubuğundaki <b>Paylaş</b> düğmesi (kare + yukarı ok)<br>2) Listede <b>aşağı kaydırın</b><br>3) <b>"Ana Ekrana Ekle"</b> → <b>Ekle</b>');return;}
   showMsg('Uygulama Olarak Kur','Chrome/Edge adres çubuğunun <b>sağındaki kurulum simgesine</b> tıklayın (ekran+aşağı ok) veya menü <b>⋮ → "Yükle"</b>.<br><br>Kurulum simgesi yoksa uygulama <b>zaten kuruludur</b> — adres çubuğundaki simgeyle uygulamada açabilirsiniz.<br>Kaldırmak: uygulama penceresinde <b>⋮ → Kaldır</b> (masaüstü kısayolunu silmek uygulamayı kaldırmaz).');
 }
 document.addEventListener('DOMContentLoaded',function(){
