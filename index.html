@@ -200,6 +200,7 @@
   </div>
   <div class="hub-tools">
     <button id="_hub_install_btn" class="hub-tool" onclick="_hubInstallPWA()" style="display:none">📲 Ana Ekrana</button>
+    <button id="_sw_tog" class="hub-tool" onclick="_swToggle()" title="Medya açılış modu: Blob (bugünkü varsayılan) / SW (site adresinden — PWA çubuksuz, uzantılar çalışır)">⚙ Açılış: Blob</button>
     <button class="hub-tool" onclick="showKeyModal()">🔑</button>
     <button class="hub-tool admin-only" onclick="showTagger()">🏷 Etiketle</button>
     <button class="hub-tool admin-only" onclick="genManifest()">📋 Manifest üret</button>
@@ -5119,6 +5120,10 @@ async function openMedia(id) {
     else return;
   }
   const isIOS=(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&navigator.standalone!==undefined;
+  /* __SW_MODE__ v1 (SEÇMELİ; varsayılan=Blob): SW modu = medya GERÇEK site adresinden (./?m=id&lib=x) açılır →
+     PWA'da çubuk yok, masaüstünde uzantılar (DeepL) çalışır. _nav = tam-sayfa açılış (iOS her zaman; masaüstü yalnız SW modunda). */
+  const _swWant=_swPref()&&('serviceWorker' in navigator)&&!!window.caches&&location.protocol==='https:';
+  const _nav=isIOS||_swWant;
   if (isIOS && html.length > 66*1024*1024) {
     const go = await new Promise(res => {
       const ov=document.createElement('div');
@@ -5145,13 +5150,13 @@ async function openMedia(id) {
       +'var a=document.querySelector("audio");if(!a)return;'
       +'if(_t>0){a.addEventListener("canplay",function _s(){a.currentTime=_t;a.removeEventListener("canplay",_s);},{once:true});}'
       +'a.addEventListener("timeupdate",function(){var n=Math.floor(a.currentTime);if(n===_x)return;_x=n;'
-      +(isIOS
+      +(_nav
         ?'try{localStorage.setItem("'+cur().prefix+'pos_"+_id,n);}catch(e){}try{var _wn={};try{_wn=JSON.parse(window.name||"{}")||{};}catch(_e){_wn={};}_wn.nhg=1;_wn.id=_id;_wn.t=n;_wn.lib="'+currentLib+'";window.name=JSON.stringify(_wn);}catch(e){}'
         :'try{window.parent.postMessage({nhg:1,id:_id,t:n},"*");}catch(e){}'
       )+'});'
     +'}'
     +'document.readyState==="loading"?document.addEventListener("DOMContentLoaded",_run):_run();'
-    +(isIOS?'(function(){function _ab(){var b=document.createElement("button");b.innerHTML="‹";b.style.cssText="position:fixed;top:16px;right:16px;z-index:9999;background:'+cur().c+';color:#fff;border:none;border-radius:24px;padding:7px 15px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:manipulation;-webkit-tap-highlight-color:transparent;line-height:1;";b.addEventListener("click",function(){history.back();});document.body.appendChild(b);}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",_ab):_ab();})();':'')
+    +(_nav?'(function(){function _ab(){var b=document.createElement("button");b.innerHTML="‹";b.style.cssText="position:fixed;top:16px;right:16px;z-index:9999;background:'+cur().c+';color:#fff;border:none;border-radius:24px;padding:7px 15px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:manipulation;-webkit-tap-highlight-color:transparent;line-height:1;";b.addEventListener("click",function(){history.back();});document.body.appendChild(b);}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",_ab):_ab();})();':'')
   +'})();<'+'/scr'+'ipt>';
   const clipInj='<scr'+'ipt>(function(){'
     +'function _sync(t){'
@@ -5175,7 +5180,7 @@ async function openMedia(id) {
   /* YILDIZLILAR kopru: _NHG_ID + _STARS_INIT'i <head>'e enjekte et (body modulu init'inde okur; body-inj cok GEC kalir). */
   var _headInj='<scr'+'ipt>try{window._NHG_ID='+JSON.stringify(id)+';'+(savedStarsB64?'window._STARS_INIT=JSON.parse(decodeURIComponent(escape(atob("'+savedStarsB64+'"))));':'')+'}catch(e){}<'+'/scr'+'ipt>';
   if(html.indexOf('</head>')>=0)html=html.replace('</head>',_headInj+'</head>');
-  if(isIOS){
+  if(_nav){
     var _pz=(typeof _zoomLevel!=='undefined'?_zoomLevel:1);
     var _isPWALib=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches);
     var _zoomInj='<scr'+'ipt>(function(){'
@@ -5209,6 +5214,7 @@ async function openMedia(id) {
     var _earlyZoomInj='<style>html,body{-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important}</style>'+'<scr'+'ipt>document.documentElement.style.zoom='+_pz.toFixed(2)+';window.addEventListener("DOMContentLoaded",function(){setTimeout(function(){window.dispatchEvent(new Event("resize"));},100);});<'+'/scr'+'ipt>';
     if(html.includes('</head>'))html=html.replace('</head>',_earlyZoomInj+'</head>');
     html=html.includes('</body>')?html.replace('</body>',_zoomInj+'</body>'):html+_zoomInj;
+    if(_swWant && await _swOpen(html,id)) return; /* SW yolu başarılıysa bitti; her aksilikte alttaki BLOB yolu (bugünkü davranış) */
     if(_blobUrl){URL.revokeObjectURL(_blobUrl);_blobUrl=null;}
     _blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html'}));
     location.href=_blobUrl;
@@ -5897,6 +5903,22 @@ function showCodeGate(){
 }
 function initApp() {
   if(initApp._done)return; initApp._done=true;
+  /* __SW_MODE__ GÜVENLİK AĞI: ?m=<id>&lib=<lib> adresi SW'siz açıldıysa (SW silinmiş/cache boş/yer imi)
+     kütüphane yüklenir ve medya BLOB yoluyla otomatik açılır — kırık link imkansız.
+     ?m önce URL'den temizlenir → medyadan geri dönüşte döngü olmaz. */
+  try{
+    var _qs=new URL(location.href).searchParams, _qm=_qs.get('m'), _ql=_qs.get('lib');
+    if(_qm&&_ql&&LIBS[_ql]){
+      try{ history.replaceState(null,'',location.pathname); }catch(e){}
+      var _gk=false; try{ _gk=localStorage.getItem('lib_welcome_ok')==='1'; }catch(e){}
+      if(_gk){
+        try{ localStorage.setItem('lib_sw_mode','0'); }catch(e){} /* SW yolu bu cihazda çalışmadı → moda güvenme, Blob'a dön */
+        enterLib(_ql);
+        setTimeout(function(){ try{ openMedia(_qm); }catch(e){} },250);
+        return;
+      }
+    }
+  }catch(e){}
   try{ if(localStorage.getItem('lib_admin')==='1') document.body.classList.add('admin'); }catch(e){}
   // iOS'ta podcast location.href ile acilir -> geri donunce sayfa yeniden yuklenir.
   // window.name'de hangi kütüphaneden gelindigi var (d.lib) -> dogrudan o kütüphaneye don (hub'a dusme).
@@ -6023,6 +6045,42 @@ setTimeout(_checkLibUpdate,2500);
 /* PWA arka plandan öne gelince de kontrol et (iOS PWA günlerce canlı kalır, cold-start beklenmez) */
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') _checkLibUpdate(); });
 
+/* ---- __SW_MODE__ v1: SEÇMELİ medya açılış modu (Blob=varsayılan / SW) ----
+   SW kaydı HER ZAMAN yapılır (https'te) — sw.js tam geçirgen olduğundan kayıtlı olması hiçbir şeyi değiştirmez;
+   yalnız mod AÇIK + kullanıcı medya açınca devreye girer. file:// ve iframe akışı hiç etkilenmez. */
+if('serviceWorker' in navigator && location.protocol==='https:'){ try{ navigator.serviceWorker.register('sw.js'); }catch(e){} }
+function _swPref(){ try{ return localStorage.getItem('lib_sw_mode')==='1'; }catch(e){ return false; } }
+function _swLabel(){ var b=document.getElementById('_sw_tog'); if(b) b.textContent='⚙ Açılış: '+(_swPref()?'SW':'Blob'); }
+function _swToggle(){
+  var on=!_swPref();
+  try{ localStorage.setItem('lib_sw_mode', on?'1':'0'); }catch(e){}
+  _swLabel();
+  showMsg('Medya Açılış Modu: '+(on?'SW':'Blob'),
+    on ? 'Medya artık <b>gerçek site adresinden</b> açılır: PWA\'da üst/alt çubuk çıkmaz, masaüstünde DeepL gibi uzantılar çalışır.<br><br>Offline aynen çalışır (içerik cihazdan servis edilir). Herhangi bir aksilikte otomatik Blob\'a düşer.'
+        : 'Bugüne kadarki varsayılan mod. Medya blob adresiyle açılır.');
+}
+/* SW cache'e koy + gerçek adrese git. HER hata → false (çağıran blob yoluna düşer).
+   Depo şişmesin: cache'te YALNIZ son açılan medya tutulur (her açılışta IDB'den taze konur). */
+function _swOpen(html,id){
+  return new Promise(function(res){
+    var done=false; function fin(v){ if(!done){done=true;res(v);} }
+    setTimeout(function(){fin(false);},5000); /* SW ready asılı kalırsa bekletme → blob */
+    try{
+      navigator.serviceWorker.ready.then(function(reg){
+        if(!reg||!reg.active){fin(false);return;}
+        var u=new URL('./',location.href); u.searchParams.set('m',id); u.searchParams.set('lib',currentLib);
+        var url=u.href;
+        caches.open('lib_media_sw_v1').then(function(c){
+          return c.put(url,new Response(html,{headers:{'Content-Type':'text/html; charset=utf-8'}}))
+            .then(function(){ return c.keys(); })
+            .then(function(ks){ return Promise.all(ks.filter(function(k){return k.url!==url;}).map(function(k){return c.delete(k);})); })
+            .then(function(){ location.href=url; fin(true); });
+        }).catch(function(){fin(false);});
+      }).catch(function(){fin(false);});
+    }catch(e){fin(false);}
+  });
+}
+
 /* ---- PWA KURULUM BUTONU ---- */
 var _pwaEvt=null;
 window.addEventListener('beforeinstallprompt',function(e){
@@ -6061,6 +6119,7 @@ document.addEventListener('DOMContentLoaded',function(){
      appinstalled olayı aynı oturumda butonu yine gizler (hoş detay korunur). */
   var isSA=window.matchMedia('(display-mode:standalone)').matches||(navigator.standalone===true);
   if(!isSA){var btn=document.getElementById('_hub_install_btn');if(btn)btn.style.display='inline-block';}
+  _swLabel();
 });
 </script>
 <div id="nhg-overlay"><div id="nhg-overlay-bar"><span></span><button id="nhg-overlay-close" title="Kapat">‹</button></div><iframe id="nhg-overlay-frame"></iframe></div>
