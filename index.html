@@ -5214,10 +5214,6 @@ async function openMedia(id) {
     var _earlyZoomInj='<style>html,body{-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important}</style>'+'<scr'+'ipt>document.documentElement.style.zoom='+_pz.toFixed(2)+';window.addEventListener("DOMContentLoaded",function(){setTimeout(function(){window.dispatchEvent(new Event("resize"));},100);});<'+'/scr'+'ipt>';
     if(html.includes('</head>'))html=html.replace('</head>',_earlyZoomInj+'</head>');
     html=html.includes('</body>')?html.replace('</body>',_zoomInj+'</body>'):html+_zoomInj;
-    /* __SW_TOUCH__ v1: SW modunda (gerçek-URL) iOS native pinch/zoom, ana-ekran jestlerini (pinch yazı-boyut,
-       TR swap, 2-tap-sürükle-büyüt) kapıyor; okuyucu `touch-action:pan-y` sayesinde bağışık. Aynısını ana ekrana
-       ver. KENDİNİ ?m= ile kapatır → SW başarısız olup BLOB'a düşse bile blob BİREBİR eski davranış (sıfır risk). */
-    if(_swWant){ var _swTA='<scr'+'ipt>if(/[?&]m=/.test(location.search)){var _s=document.createElement("style");_s.textContent="html,body{touch-action:pan-y}.tr-panel,.tr-panel *{touch-action:none}";(document.head||document.documentElement).appendChild(_s);}<'+'/scr'+'ipt>'; html=html.includes('</head>')?html.replace('</head>',_swTA+'</head>'):_swTA+html; }
     if(_swWant && await _swOpen(html,id)) return; /* SW yolu başarılıysa bitti; her aksilikte alttaki BLOB yolu (bugünkü davranış) */
     if(_blobUrl){URL.revokeObjectURL(_blobUrl);_blobUrl=null;}
     _blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html'}));
