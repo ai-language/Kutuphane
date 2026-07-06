@@ -84,6 +84,7 @@
   .item-title.has-media{color:#2b6cb0;cursor:pointer;}
   .item-title.has-media:hover{text-decoration:underline;}
   .item-title.has-media:active{opacity:0.7;}
+  .item-title.not-uploaded{ color:#a7b6c8; }   /* sunucuda YOK + yerelde YOK -> SOLUK (tiklanabilirlik/bulut/mavi HIC degismez, salt renk) */
   .item-row.done .item-title{color:#68d391!important;text-decoration:line-through;}
   .nhg-btn{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;background:#edf2f7;color:#718096;font-size:0.75rem;text-decoration:none;transition:all 0.15s;border:1px solid #e2e8f0;font-weight:700;}
   .nhg-btn:hover{background:#e2e8f0;color:#2d3748;}
@@ -5058,6 +5059,49 @@ async function loadMediaState() {
   const b=view.querySelector('.media-badge');
   const nLocal=keys.filter(k=>k!=='__mappings__').length;
   if (b) b.textContent = nLocal>0 ? ('\uD83C\uDFB5 '+nLocal+' medya y\u00FCkl\u00FC') : '';
+  _markUploaded(keys);   // __NOT_UPLOADED__: sunucuda-olmayan ba\u015Fl\u0131klar\u0131 SOLUK i\u015Faretle (async fire-and-forget; offline/dev/kod-yok \u2192 dokunmaz)
+}
+
+/* __NOT_UPLOADED__ v1: SADECE g\u00F6rsel \u2014 sunucuda (Release) OLMAYAN + yerelde de OLMAYAN ba\u015Fl\u0131\u011F\u0131n rengini solukla\u015Ft\u0131r\u0131r.
+   T\u0131klanabilirlik/bulut/onclick/mavi H\u0130\u00C7 de\u011Fi\u015Fmez. "Sunucuda ne var" = Worker mode=list (session-cache). Offline/dev/kod-yok \u2192 dokunmaz. */
+var _srvNames = {};   // libId -> asset adlar\u0131 (oturum cache; k\u00FCt\u00FCphane-ba\u015F\u0131na 1 istek)
+function _onServer(id,names){
+  for(var i=0;i<names.length;i++){ var n=names[i];
+    if(n===id+'.html' || n.indexOf('('+id+')')>=0) return true;
+    var p=n.indexOf(id);
+    while(p>=0){ var bch=p===0?'':n.charAt(p-1), ach=n.charAt(p+id.length)||'';
+      if(!/[A-Za-z0-9_]/.test(bch) && !/[A-Za-z0-9_]/.test(ach)) return true;   // id, harf/rakam/_ OLMAYAN s\u0131n\u0131rla \u00E7evrili \u2192 ger\u00E7ek e\u015Fle\u015Fme (item_0_10_3 \u2260 item_0_10_30)
+      p=n.indexOf(id,p+1);
+    }
+  }
+  return false;
+}
+async function _markUploaded(localKeys){
+  if(!_verLive() || navigator.onLine===false) return;      // offline/dev \u2192 dokunma (mevcut renk kal\u0131r)
+  var _key=''; try{_key=localStorage.getItem('lib_dl_key')||'';}catch(e){}
+  if(!_key) return;                                          // kod yok \u2192 sunucu listesi al\u0131namaz \u2192 dokunma
+  var lib=currentLib, names=_srvNames[lib];
+  if(!names){
+    var en=false; try{ var _f=(curView()||document).querySelector('.item-title'); if(_f && (_f.dataset.id||'').indexOf('item_en_')===0) en=true; }catch(e){}
+    var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=list&k='+encodeURIComponent(_key)+'&dev='+encodeURIComponent(_devId())+(en?'&en=1':'');
+    try{
+      var ctl=('AbortController' in window)?new AbortController():null;
+      var tm=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},6000):null;
+      var r=await fetch(u,{cache:'no-store',signal:ctl?ctl.signal:undefined});
+      if(tm)clearTimeout(tm);
+      if(!r.ok) return;
+      var j=await r.json();
+      if(!(j&&j.ok&&Array.isArray(j.names))) return;
+      names=j.names; _srvNames[lib]=names;
+    }catch(e){ return; }
+  }
+  var keys=localKeys; if(!keys){ try{keys=await _keys();}catch(e){keys=[];} }
+  if(lib!==currentLib) return;                               // arada k\u00FCt\u00FCphane de\u011Fi\u015Ftiyse iptal
+  (curView()||document).querySelectorAll('.item-title').forEach(function(el){
+    var id=el.dataset.id; if(!id) return;
+    var hasLocal=keys.indexOf(id)>=0;
+    el.classList.toggle('not-uploaded', !_onServer(id,names) && !hasLocal);   // sunucuda YOK + yerelde YOK \u2192 soluk
+  });
 }
 
 /* ============ SUNUCUDAN OTOMATIK INDIRME (host-bagimsiz, offline-cache) ============
@@ -5076,11 +5120,11 @@ async function _loadManifest(){
     if(currentLib===L.id) loadMediaState();   // uzak-URL'li basliklari tiklanabilir isaretle
   }catch(e){ /* manifest yok / offline / file:// => sessiz; mevcut akis bozulmaz */ }
 }
-async function _downloadMedia(id, man){
+async function _downloadMedia(id, man, _fresh){
   var ov=_showProg('Sunucudan indiriliyor...',2);
   try{
     var _key=''; try{_key=localStorage.getItem('lib_dl_key')||'';}catch(e){}
-    var _u=man.url+(man.url.indexOf('?')>=0?'&':'?')+'k='+encodeURIComponent(_key)+'&dev='+encodeURIComponent(_devId());
+    var _u=man.url+(man.url.indexOf('?')>=0?'&':'?')+'k='+encodeURIComponent(_key)+'&dev='+encodeURIComponent(_devId())+(_fresh?'&fresh=1':'');
     var r=await fetch(_u);
     if(r.status===403||r.status===401){ _closeOv(ov); try{showKeyModal();}catch(e){} return null; }   // gecerli kod yok -> dogrudan sifre modalini ac
     if(r.status===404){ _closeOv(ov); showMsg('İçerik Mevcut Değil','Bu içerik henüz mevcut değil. Daha sonra tekrar kontrol edin.'); return null; }
@@ -5096,6 +5140,7 @@ async function _downloadMedia(id, man){
     if(!_hasSig(html)){ _closeOv(ov); showMsg('Geçersiz İçerik','İndirilen içerik kütüphane etiketi (LIBSIG) taşımıyor; reddedildi.'); return null; }
     _updProg(ov,'Kaydediliyor...',97);
     try{ await _put(id, html); }catch(e){ /* IDB yazilamadi (gizli mod) -> yine de ac */ }
+    try{ var _mv=r.headers.get('X-Media-Ver'); if(_mv) localStorage.setItem(cur().prefix+'ver_'+id,_mv); }catch(e){}   // __VER_CHECK__: sürüm damgasını sakla (güncelleme kontrolü için)
     _closeOv(ov); loadMediaState();
     return html;
   }catch(e){
@@ -5103,6 +5148,51 @@ async function _downloadMedia(id, man){
     showMsg('\u0130ndirme Hatas\u0131','Sunucudan indirilemedi: '+((e&&e.message)||e)+' \u2014 internet ba\u011Flant\u0131n\u0131z\u0131 kontrol edin.');
     return null;
   }
+}
+
+/* __VER_CHECK__ v1: içerik SÜRÜM kontrolü (GitHub asset updated_at damgası). Sunucuda daha yeni sürüm
+   varsa İSTEĞE BAĞLI güncelleme sunar. İnternet yoksa/hata/dev/kod-yok → sessizce yerel (cache) sürümle devam.
+   Damga: cur().prefix+'ver_'+id (yüklü sürüm). "Kalsın"→hiçbir şey saklanmaz, HER tıklamada tekrar sorar. */
+function _verLive(){ return typeof LIB_AUTH_URL==='string' && LIB_AUTH_URL.indexOf('HESABIN')<0 && /^https?:/.test(LIB_AUTH_URL); }
+async function _fetchVer(id){
+  if(!_verLive() || navigator.onLine===false) return null;
+  var _key=''; try{_key=localStorage.getItem('lib_dl_key')||'';}catch(e){}
+  if(!_key) return null;
+  var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=ver&id='+encodeURIComponent(id)+'&k='+encodeURIComponent(_key)+'&dev='+encodeURIComponent(_devId());
+  try{
+    var ctl=('AbortController' in window)?new AbortController():null;
+    var tm=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},4000):null;
+    var r=await fetch(u,{cache:'no-store',signal:ctl?ctl.signal:undefined});
+    if(tm)clearTimeout(tm);
+    if(!r.ok) return null;
+    var j=await r.json();
+    return (j&&j.ok&&j.ver)?String(j.ver):null;
+  }catch(e){ return null; }
+}
+var _verBusy = new Set();   // in-memory: o an çalışan ver-kontrolleri (çift-dokunuş → çift modal engeli); sayfa yenilenince sıfırlanır, sıfır sunucu maliyeti
+async function _maybeOfferUpdate(id){
+  if(_verBusy.has(id)) return;                                        // bu başlığın ver-kontrolü ZATEN çalışıyor (eşzamanlı çift-tetik) → atla; tek-tık davranışı değişmez
+  _verBusy.add(id);
+  try{
+  var sv=await _fetchVer(id);                                         // HER tıklamada kontrol (throttle YOK — kullanıcı her tıklamada sorulsun istedi)
+  if(!sv) return;                                                     // offline/hata/dev/kod-yok → sessiz, yerelle devam
+  var stored=''; try{stored=localStorage.getItem(cur().prefix+'ver_'+id)||'';}catch(e){}
+  if(!stored){ try{localStorage.setItem(cur().prefix+'ver_'+id,sv);}catch(e){} return; }   // eski dosya (damgasız) → mevcut sürümü TABAN al, sorma
+  if(sv===stored) return;                                             // güncel
+  // "reddetme" damgası YOK → "kalsın" dense bile HER tıklamada yeniden sorar (kullanıcı istedi)
+  var ok=await new Promise(function(res){
+    var done=false; function fin(v){ if(done)return; done=true; res(v); }
+    var ov=showModal('<h3>Yeni Sürüm Var</h3><p style="color:#4a5568;font-size:.9rem;line-height:1.55;margin:6px 0 4px">Bu içeriğin sunucuda daha yeni bir sürümü var. Şimdi güncellemek ister misin?<br><span style="color:#718096;font-size:.82rem">Güncellemezsen mevcut kayıtlı sürümle açılır (internetsiz de çalışır).</span></p><div class="modal-btns"><button class="btn-primary" id="_uv_y">🔄 Güncelle</button><button class="btn-secondary" id="_uv_n">Şimdilik kalsın</button></div>',
+      function(ov2){ var y=ov2.querySelector('#_uv_y'),n=ov2.querySelector('#_uv_n'); if(y)y.onclick=function(){fin(true);closeModal(ov2);}; if(n)n.onclick=function(){fin(false);closeModal(ov2);}; });
+    var pi=setInterval(function(){ if(!ov||!document.body.contains(ov)){ clearInterval(pi); fin(false); } },300);   // modal başka yolla kapanırsa (backdrop) → asılı kalma
+  });
+  if(ok){
+    var man=(_manifest[currentLib]||{})[id];
+    if((!man||!man.url)&&_verLive()) man={url:LIB_AUTH_URL+'/?id='+encodeURIComponent(id),size:0};
+    if(man&&man.url){ var h=await _downloadMedia(id,man,true); if(h){ try{localStorage.setItem(cur().prefix+'ver_'+id,sv);}catch(e){} } }   // fresh=1: taze asset (yeniden yüklenen yeni id); indirme başarısızsa eski kopya korunur
+  }
+  // reddederse HİÇBİR ŞEY kaydetme → bir sonraki tıklamada yine sorar
+  }finally{ _verBusy.delete(id); }   // her çıkış yolunda (return/throw/normal) kilidi bırak → asılı kalma yok
 }
 
 async function openMedia(id) {
@@ -5118,6 +5208,9 @@ async function openMedia(id) {
     }
     if (man && man.url) { html = await _downloadMedia(id, man); if (!html) return; }
     else return;
+  } else {
+    // __VER_CHECK__: yerel kopya var → sunucuda daha yeni sürüm var mı? (online + 5dk throttle; yoksa sessiz, yerelle devam)
+    try { await _maybeOfferUpdate(id); const _u2=await _get(id); if(_u2) html=_u2; } catch(e){}
   }
   const isIOS=(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&navigator.standalone!==undefined;
   /* __SW_MODE__ v1 (SEÇMELİ; varsayılan=Blob): SW modu = medya GERÇEK site adresinden (./?m=id&lib=x) açılır →
