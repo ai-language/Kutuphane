@@ -147,6 +147,15 @@
   /* Hub alt araç butonları (Şifre / Etiketle) + admin görünürlük + indirileni sil */
   .hub-tools{ margin-top:24px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
   .hub-tool{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.20); color:#cbd5e0; padding:7px 15px; border-radius:20px; font-size:.8rem; cursor:pointer; -webkit-tap-highlight-color:transparent; transition:background .15s; }
+  /* __HDR_POLISH__ v1 (2026-07-10): üst bölge görsel inceltme — DAVRANIŞSIZ, renk paleti AYNEN.
+     Sorun: header aksiyon butonlarının inline stilleri dağınıktı (padding 9x14/9x12/7x12, font .78-1rem) → sıralar tırtıklı duruyordu.
+     Çözüm: tek yükseklik + flex hizalama (dikey padding sıfırlanır, yükseklik kontrolü tek elde) + ince tipografi/temas dokunuşları. */
+  .lib-view header button:not(.lib-back){ height:37px; padding-top:0 !important; padding-bottom:0 !important; display:inline-flex; align-items:center; justify-content:center; border-radius:10px !important; }
+  .lib-view header h1{ letter-spacing:.2px; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,.15); }
+  .lib-view header p{ opacity:.88; }
+  .lib-view header button:active{ transform:scale(.97); }
+  .hub-tool{ backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  .hub-tool:hover{ background:rgba(255,255,255,.16); }
   .hub-tool:hover{ background:rgba(255,255,255,.16); color:#fff; }
   .admin-only{ display:none !important; }
   body.admin .admin-only{ display:inline-block !important; }
@@ -215,6 +224,7 @@
     <button class="hub-tool" onclick="showKeyModal()">🔑</button>
     <button class="hub-tool admin-only" onclick="showTagger()">🏷 Etiketle</button>
     <button class="hub-tool admin-only" onclick="genManifest()">📋 Manifest üret</button>
+    <button class="hub-tool admin-only" onclick="showStats()">📊 İstatistik</button>
   </div>
 </div>
 
@@ -7581,8 +7591,8 @@ const LIBS = {
   acute: { id:'acute', name:'Het Acute Boekje', db:'acute_media_v1', prefix:'acute_', tracker:'acute_tracker_v1', c:'#9b1c31', c2:'#c0314c', manifest:'manifests/acute.json' },
   bi:    { id:'bi',    name:'BI Dersleri',      db:'bi_media_v1',    prefix:'bi_',    tracker:'bi_tracker_v1',  c:'#23272e', c2:'#3a4049', manifest:'manifests/bi.json' },
   en:    { id:'en',    name:'English Podcasts', db:'en_media_v1',    prefix:'en_',    tracker:'en_tracker_v1',  c:'#1e3a8a', c2:'#3b82f6', manifest:'manifests/nhg_en.json' },  /* nhg_en: NHG başlıklarının İngilizcesi */
-  acute_en:{ id:'acute_en', name:'Acute Boekje English', db:'acute_en_media_v1', prefix:'acute_en_', tracker:'acute_en_tracker_v1', c:'#9b1c31', c2:'#c0314c', manifest:'manifests/acute_en.json' },
-  bi_en: { id:'bi_en', name:'BI Dersleri English',  db:'bi_en_media_v1', prefix:'bi_en_', tracker:'bi_en_tracker_v1', c:'#23272e', c2:'#3a4049', manifest:'manifests/bi_en.json' }
+  acute_en:{ id:'acute_en', name:'Acute Boekje English', db:'acute_en_media_v1', prefix:'acute_en_', tracker:'acute_en_tracker_v1', c:'#1e3a8a', c2:'#3b82f6', manifest:'manifests/acute_en.json' }, /* 2026-07-10: İngilizce kimliği=MAVİ (en ile aynı; eskiden acute kırmızısıydı, kullanıcı istedi) */
+  bi_en: { id:'bi_en', name:'BI Dersleri English',  db:'bi_en_media_v1', prefix:'bi_en_', tracker:'bi_en_tracker_v1', c:'#1e3a8a', c2:'#3b82f6', manifest:'manifests/bi_en.json' } /* 2026-07-10: tutarlılık için bi_en de MAVİ */
 };
 /* ==== TELIF / ERISIM — 2 KATMAN ====
    LIBSIG : gomulu etiket. Bu dizgiyi ICERMEYEN .html / .zip / sunucu icerigi IMPORT EDILMEZ.
@@ -7897,6 +7907,33 @@ async function _loadManifest(){
   }catch(e){ /* manifest yok / offline / file:// => sessiz; mevcut akis bozulmaz */ }
 }
 async function _downloadMedia(id, man, _fresh){
+  /* __DL_INFO__ ek: manifest'te boyut yoksa (genManifest size:0 yazar) sunucudan mode=ver ile GERÇEK boyut alınır (4sn timeout, sessiz düşüş) → dialog her indirmede çalışabilir; man.size'a yazılır=oturum içinde tekrar sorulmaz */
+  if(man && !(man.size>0) && !_fresh){ try{ var _vsz=await _fetchSize(id); if(_vsz>0) man.size=_vsz; }catch(e){} }
+  /* __DL_INFO__ v1 (2026-07-10): indirme ÖNCESİ boyut + bağlantı tavsiyesi. Boyut=manifest man.size (yoksa dialog atlanır, akış eski).
+     Bağlantı türü tespiti YALNIZ Chromium/Android'de mümkün (navigator.connection.type); iOS Safari'de hücresel/Wi-Fi API'si YOK → tespitsiz genel not.
+     _fresh (güncelleme) akışı zaten kendi onayından geçti → ikinci dialog sorulmaz. Eşik 20MB: küçük dosyada sürtünme yaratma. */
+  if(man && man.size>0 && man.size>=20*1024*1024 && !_fresh){
+    var _mb=man.size/1048576, _mbTxt=_mb>=100?Math.round(_mb)+' MB':_mb.toFixed(1)+' MB';
+    var _cn=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+    var _note=(_cn&&_cn.type==='cellular')?'<b style="color:#b45309">Şu an hücresel veri kullanıyorsunuz</b> — Wi-Fi\'ye geçmeniz önerilir.'
+             :((_cn&&_cn.type==='wifi')?'Wi-Fi bağlantısındasınız.':'Hücresel verideyseniz Wi-Fi\'ye geçmeniz önerilir.');
+    var _go=await new Promise(function(res){
+      var ovc=document.createElement('div');
+      ovc.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+      ovc.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px 20px;max-width:300px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3);">'
+        +'<div style="font-size:1.5rem;margin-bottom:10px;">⬇️</div>'
+        +'<div style="font-weight:700;margin-bottom:8px;color:#1a202c;font-size:1rem;">İndirme: '+_mbTxt+'</div>'
+        +'<div style="color:#4a5568;font-size:.88rem;margin-bottom:20px;line-height:1.55;">'+_note+'<br>İçerik bir kez iner, sonrası çevrimdışı çalışır.</div>'
+        +'<div style="display:flex;gap:10px;">'
+          +'<button id="_dc" style="flex:1;padding:11px;border:none;border-radius:9px;background:#f0f4f8;color:#4a5568;font-weight:600;font-size:.88rem;cursor:pointer;">Vazgeç</button>'
+          +'<button id="_do" style="flex:1;padding:11px;border:none;border-radius:9px;background:'+cur().c+';color:#fff;font-weight:600;font-size:.88rem;cursor:pointer;">İndir</button>'
+        +'</div></div>';
+      document.body.appendChild(ovc);
+      ovc.querySelector('#_dc').onclick=function(){document.body.removeChild(ovc);res(false);};
+      ovc.querySelector('#_do').onclick=function(){document.body.removeChild(ovc);res(true);};
+    });
+    if(!_go) return null;
+  }
   var ov=_showProg('Sunucudan indiriliyor...',2);
   try{
     var _key=''; try{_key=localStorage.getItem('lib_dl_key')||'';}catch(e){}
@@ -7909,7 +7946,7 @@ async function _downloadMedia(id, man, _fresh){
     if(r.body && r.body.getReader && total>0){
       var reader=r.body.getReader(), chunks=[], received=0, rd;
       for(;;){ rd=await reader.read(); if(rd.done)break; chunks.push(rd.value); received+=rd.value.length;
-        _updProg(ov,'\u0130ndiriliyor... '+(received/1048576).toFixed(1)+' MB', Math.min(95, Math.round(received/total*100))); }
+        _updProg(ov,'\u0130ndiriliyor... '+(received/1048576).toFixed(1)+' / '+(total/1048576).toFixed(1)+' MB', Math.min(95, Math.round(received/total*100))); } /* __DL_INFO__: toplam boyut da g\u00f6r\u00fcn\u00fcr */
       var buf=new Uint8Array(received), off=0, c; for(c of chunks){ buf.set(c,off); off+=c.length; }
       html=new TextDecoder('utf-8').decode(buf);
     } else { _updProg(ov,'\u0130ndiriliyor...',60); html=await r.text(); }
@@ -7930,6 +7967,22 @@ async function _downloadMedia(id, man, _fresh){
    varsa İSTEĞE BAĞLI güncelleme sunar. İnternet yoksa/hata/dev/kod-yok → sessizce yerel (cache) sürümle devam.
    Damga: cur().prefix+'ver_'+id (yüklü sürüm). "Kalsın"→hiçbir şey saklanmaz, HER tıklamada tekrar sorar. */
 function _verLive(){ return typeof LIB_AUTH_URL==='string' && LIB_AUTH_URL.indexOf('HESABIN')<0 && /^https?:/.test(LIB_AUTH_URL); }
+/* __DL_INFO__ yardımcısı: mode=ver'den YALNIZ boyut (kod yoksa/hata → 0 = dialog atlanır, akış eski) */
+async function _fetchSize(id){
+  if(!_verLive() || navigator.onLine===false) return 0;
+  var _key=''; try{_key=localStorage.getItem('lib_dl_key')||'';}catch(e){}
+  if(!_key) return 0;
+  var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=ver&id='+encodeURIComponent(id)+'&k='+encodeURIComponent(_key)+'&dev='+encodeURIComponent(_devId());
+  try{
+    var ctl=('AbortController' in window)?new AbortController():null;
+    var tm=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},4000):null;
+    var r=await fetch(u,{cache:'no-store',signal:ctl?ctl.signal:undefined});
+    if(tm)clearTimeout(tm);
+    if(!r.ok) return 0;
+    var j=await r.json();
+    return (j&&j.ok&&+j.size>0)?+j.size:0;
+  }catch(e){ return 0; }
+}
 async function _fetchVer(id){
   if(!_verLive() || navigator.onLine===false) return null;
   var _key=''; try{_key=localStorage.getItem('lib_dl_key')||'';}catch(e){}
@@ -7993,24 +8046,7 @@ async function openMedia(id) {
      PWA'da çubuk yok, masaüstünde uzantılar (DeepL) çalışır. _nav = tam-sayfa açılış (iOS her zaman; masaüstü yalnız SW modunda). */
   const _swWant=_swPref()&&('serviceWorker' in navigator)&&!!window.caches&&location.protocol==='https:';
   const _nav=isIOS||_swWant;
-  if (isIOS && html.length > 66*1024*1024) {
-    const go = await new Promise(res => {
-      const ov=document.createElement('div');
-      ov.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;';
-      ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px 20px;max-width:300px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3);">'
-        +'<div style="font-size:1.6rem;margin-bottom:10px;">&#9888;</div>'
-        +'<div style="font-weight:700;margin-bottom:8px;color:#1a202c;font-size:1rem;">Büyük Dosya</div>'
-        +'<div style="color:#4a5568;font-size:.88rem;margin-bottom:20px;line-height:1.55;">Bu dosyanın boyutu büyük.<br>iPhone\'da düzgün çalışmayabilir.</div>'
-        +'<div style="display:flex;gap:10px;">'
-          +'<button id="_wc" style="flex:1;padding:11px;border:none;border-radius:9px;background:#f0f4f8;color:#4a5568;font-weight:600;font-size:.88rem;cursor:pointer;">Vazgeç</button>'
-          +'<button id="_wo" style="flex:1;padding:11px;border:none;border-radius:9px;background:'+cur().c+';color:#fff;font-weight:600;font-size:.88rem;cursor:pointer;">Yine de Aç</button>'
-        +'</div></div>';
-      document.body.appendChild(ov);
-      ov.querySelector('#_wc').onclick=()=>{document.body.removeChild(ov);res(false);};
-      ov.querySelector('#_wo').onclick=()=>{document.body.removeChild(ov);res(true);};
-    });
-    if (!go) return;
-  }
+  /* (iPhone "Büyük Dosya / düzgün çalışmayabilir" uyarısı KALDIRILDI 2026-07-10 — büyük podcastler iPhone'da artık sorunsuz çalışıyor, kullanıcı istedi) */
   const savedPos=parseFloat(localStorage.getItem(cur().prefix+'pos_'+id)||'0')||0;
   const savedStarsB64=(function(){try{var r=localStorage.getItem(cur().prefix+'stars_'+id);return r?btoa(unescape(encodeURIComponent(r))):'';}catch(e){return '';}})();
   const inj='<scr'+'ipt>(function(){'
@@ -8536,6 +8572,62 @@ function showKeyModal(){
   });
 }
 
+/* ============ __STATS__ v1 (2026-07-10): GERÇEK KULLANIM SAYACI ============
+   Ping: PUBLIC + kişisel veri YOK (rastgele cihaz-id + platform türü). Sekme açık+görünürken 10 dk'da bir,
+   istemci tarafında 8 dk eşiğiyle ayrıca kısılır (KV yazma bütçesi). Offline / file:// dev modunda hiç çalışmaz
+   → internetsiz kullanıcılar DOĞAL olarak sayılmaz. Rapor: yalnız admin (şifre HER seferinde sorulur, cihazda saklanmaz). */
+function _statPlat(){
+  try{
+    var sa=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||(navigator.standalone===true);
+    var ua=navigator.userAgent;
+    var ios=/iphone|ipad|ipod/i.test(ua)||(/macintosh/i.test(ua)&&navigator.maxTouchPoints>1); /* yetenek-tabanlı (PWA'da iPhone=Macintosh dersi) */
+    var and=/android/i.test(ua);
+    return (ios?'ios':(and?'android':'masaustu'))+(sa?'-pwa':'-web');
+  }catch(e){ return 'diger'; }
+}
+var _statLast=0;
+function _statPing(){
+  try{
+    if(typeof _verLive!=='function'||!_verLive())return;
+    if(navigator.onLine===false)return;
+    var now=Date.now(); if(now-_statLast<8*60*1000)return; _statLast=now;
+    fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=ping&dev='+encodeURIComponent(_devId())+'&p='+_statPlat(),{cache:'no-store',keepalive:true}).catch(function(){});
+  }catch(e){}
+}
+setTimeout(_statPing,2000);
+setInterval(function(){ if(document.visibilityState==='visible')_statPing(); },10*60*1000);
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible')_statPing(); });
+async function showStats(){
+  if(typeof _verLive!=='function'||!_verLive()){ showMsg('Sunucu Yok','İstatistik yalnız canlı (Worker) modda çalışır.'); return; }
+  var pass=prompt('Admin şifresi (istatistik sunucudan çekilir):'); if(pass===null)return; pass=pass.trim(); if(!pass)return;
+  var ov=_showProg('İstatistik alınıyor...',30);
+  try{
+    var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=stats&days=7&a='+encodeURIComponent(pass),{cache:'no-store'});
+    _closeOv(ov);
+    if(r.status===403){ showMsg('Reddedildi','Admin şifresi yanlış.'); return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var j=await r.json(); var ds=(j&&j.days)||[];
+    var _pl={'ios-pwa':'📱 iPhone PWA','ios-web':'📱 iPhone Safari','android-pwa':'🤖 Android PWA','android-web':'🤖 Android','masaustu-pwa':'💻 Masaüstü PWA','masaustu-web':'💻 Masaüstü','diger':'❔ Diğer'};
+    var html='<h3>📊 Kullanım (son 7 gün)</h3>';
+    if(ds.length){
+      var t=ds[0];
+      html+='<div style="display:flex;gap:10px;margin:8px 0 12px">'
+        +'<div style="flex:1;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px;text-align:center"><div style="font-size:1.5rem;font-weight:800;color:#166534">'+(t.act||0)+'</div><div style="font-size:.72rem;color:#166534">şu an aktif (son 10 dk)</div></div>'
+        +'<div style="flex:1;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px;text-align:center"><div style="font-size:1.5rem;font-weight:800;color:#1e40af">'+(t.uniq||0)+'</div><div style="font-size:.72rem;color:#1e40af">bugün giren cihaz</div></div></div>';
+      html+='<table style="width:100%;border-collapse:collapse;font-size:.82rem">'
+        +'<tr style="color:#64748b;text-align:left"><th style="padding:4px 6px;font-weight:600">Gün</th><th style="padding:4px 6px;font-weight:600">Cihaz</th><th style="padding:4px 6px;font-weight:600">Platform</th></tr>';
+      ds.forEach(function(d){
+        var day=d.day?d.day.slice(6,8)+'.'+d.day.slice(4,6):'';
+        var ps=Object.keys(d.plats||{}).map(function(k){return (_pl[k]||k)+' '+d.plats[k];}).join(' · ')||'—';
+        html+='<tr style="border-top:1px solid #e2e8f0"><td style="padding:5px 6px;font-weight:600">'+day+'</td><td style="padding:5px 6px">'+(d.uniq||0)+'</td><td style="padding:5px 6px;color:#475569">'+ps+'</td></tr>';
+      });
+      html+='</table><p style="font-size:.72rem;color:#94a3b8;margin-top:8px;line-height:1.5">Sayım cihaz-bazlıdır, kişisel veri tutulmaz. İnternetsiz kullananlar doğal olarak sayılamaz.</p>';
+    } else html+='<p>Henüz veri yok.</p>';
+    html+='<div class="modal-btns"><button class="btn-secondary" id="_st_cl">Kapat</button></div>';
+    showModal(html,function(o){ o.querySelector('#_st_cl').onclick=function(){closeModal(o);}; });
+  }catch(e){ _closeOv(ov); showMsg('Hata','İstatistik alınamadı: '+((e&&e.message)||e)); }
+}
+
 /* ============ ETIKETLEYICI (admin): eski/harici HTML'e LIBSIG gom ============ */
 function showTagger(){ var i=document.getElementById('_tag_input'); if(i){ i.value=''; i.click(); } }
 async function handleTagFile(fl){
@@ -8597,23 +8689,41 @@ async function _handleAssign(fl){
 }
 
 /* ===== MANIFEST ÜRET (admin) — id'leri elle yazmadan; başlık listesinden otomatik ===== */
-function genManifest(){
+async function genManifest(){
   if(typeof LIB_AUTH_URL!=='string' || LIB_AUTH_URL.indexOf('HESABIN')>=0){
     showMsg('Önce Worker Adresi','LIB_AUTH_URL hâlâ placeholder (HESABIN). Önce Worker adresini yaz, sonra manifest üret.'); return;
   }
-  var made=[];
-  Object.keys(LIBS).forEach(function(k){
-    var c=document.getElementById('lib-'+k); if(!c) return;
+  /* __CLK_MAN__ v1 (2026-07-10): manifest CLK-FARKINDA — kapalı başlık (etkili clk=0: HTML data-clk VEYA sunucu-override) manifeste GİRMEZ
+     (kapalı içerik indirme hedefi olarak reklam edilmez; tıklanabilirlik NHG dahil TÜM lib'lerde geçerli). Sunucu clk haritası her lib için
+     TAZE çekilir (o lib bu oturumda hiç açılmamış olsa bile) — hata/offline → HTML default'una düşülür, üretim durmaz. */
+  var made=[], libKeys=Object.keys(LIBS);
+  for(var _ki=0;_ki<libKeys.length;_ki++){
+    var k=libKeys[_ki];
+    var c=document.getElementById('lib-'+k); if(!c) continue;
+    var ov=_clkMap[k];
+    if(!ov){
+      try{
+        var rc=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=clk&lib='+encodeURIComponent(k),{cache:'no-store'});
+        if(rc.ok){var jc=await rc.json();ov=(jc&&jc.ok&&jc.map&&typeof jc.map==='object')?jc.map:{};_clkMap[k]=ov;}
+      }catch(e){}
+      ov=ov||{};
+    }
     var items={};
-    c.querySelectorAll('.item-title').forEach(function(el){ var id=el.dataset.id; if(id) items[id]={url:LIB_AUTH_URL+'/?id='+encodeURIComponent(id), size:0}; });
+    c.querySelectorAll('.item-title').forEach(function(el){
+      var id=el.dataset.id; if(!id) return;
+      var eff=(ov[id]==='0'||ov[id]==='1')?ov[id]:(el.dataset.clk==='0'?'0':'1');
+      if(eff==='0') return;
+      items[id]={url:LIB_AUTH_URL+'/?id='+encodeURIComponent(id), size:0}; /* size:0 → indirme anında mode=ver GERÇEK boyutu tamamlar (__DL_INFO__) */
+    });
     /* boş kütüphane de üretilir (planlananlar dahil hepsi TOPLUCA aradan çıksın); dosya adı REGISTRY'den (en→nhg_en.json) */
     var fname=(LIBS[k].manifest||('manifests/'+k+'.json')).split('/').pop();
     var json=JSON.stringify({items:items},null,2);
     var u=URL.createObjectURL(new Blob([json],{type:'application/json'}));
     var a=document.createElement('a'); a.href=u; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function(){URL.revokeObjectURL(u);},5000); made.push(fname+(Object.keys(items).length?'':' (boş)'));
-  });
-  showMsg(made.length?'Manifest Üretildi':'İçerik Yok', made.length?(made.join(', ')+' indirildi. manifests/ klasörüne koy.'):'Listede başlık bulunamadı.');
+    await new Promise(function(r){setTimeout(r,350);}); /* tarayıcı çoklu-indirme boğulmasın */
+  }
+  showMsg(made.length?'Manifest Üretildi':'İçerik Yok', made.length?(made.join(', ')+' indirildi. manifests/ klasörüne koy. (Kapalı başlıklar manifeste alınmadı.)'):'Listede başlık bulunamadı.');
 }
 
 function copySyncCode() {
@@ -8765,6 +8875,7 @@ function showCodeGate(){
       var r=await fetch(u,{cache:'no-store'});
       if(r.ok){ try{localStorage.setItem('lib_welcome_ok','1');}catch(e){} done(); return; }
       if(r.status===403){ msg.textContent='Hoşgeldin parolası yanlış.'; }
+      else if(r.status===429){ msg.textContent='Güvenlik kalkanı: bu ağdan kısa sürede çok hatalı deneme yapıldı. Parolanız yanlış olmayabilir — ~10 dk bekleyip tekrar deneyin.'; } /* __RL_MSG__: 429=IP-kalkanı (paylaşılan ağda başkasının denemeleri de sayılabilir) */
       else { msg.textContent='Doğrulanamadı (HTTP '+r.status+').'; }
     }catch(e){ msg.textContent='İnternet yok veya sunucuya ulaşılamadı.'; }
     btn.disabled=false; btn.textContent='Giriş';
