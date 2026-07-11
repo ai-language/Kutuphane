@@ -80,6 +80,10 @@
   .sync-modal .btn-secondary { background:#f0f4f8;color:#4a5568; }
   .sync-modal .btn-danger { background:#e53e3e;color:white; }
   .check-wrap{display:flex;align-items:center;cursor:pointer;flex-shrink:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+  /* __CLK_TICK__ v1 (2026-07-11): tıklanabilirlik KAPALI başlığın onay kutusu/yeşil tiki CSS ile KESİN gizli —
+     eskiden yalnız loadMediaState (JS) gizliyordu; async erken-dönüş yollarında (gizli mod, IDB hatası) tik görünür kalabiliyordu.
+     Kayıtlı ilerlemeye DOKUNULMAZ → tıklanabilirlik geri açılınca tik aynen GERİ GELİR. */
+  .item-label:has(.item-title[data-clk="0"]) .check-wrap{ display:none !important; }
   .item-title{flex:1;font-size:0.9rem;color:#a0aec0;cursor:pointer;line-height:1.4;user-select:none;}
   .item-title.has-media{color:#2b6cb0;cursor:pointer;}
   .item-title.has-media:hover{text-decoration:underline;}
@@ -8173,7 +8177,9 @@ window.addEventListener('pageshow',e=>{
 });
 
 function _allItems() {
-  return Array.from((curView()||document).querySelectorAll('.item-title')).map(el=>({id:el.dataset.id,title:el.textContent.trim()}));
+  /* __CLK_IMPORT__ v1 (2026-07-11): tıklanabilirliği KAPALI (etkili data-clk=0; sunucu-override girişte uygulanmış olur) başlıklar
+     import motoruna GİRMEZ — atama açılır listesi + otomatik eşleştirme. Kapalı başlığa içerik atamak istersen önce 🔓 ile aç. */
+  return Array.from((curView()||document).querySelectorAll('.item-title')).filter(el=>el.dataset.clk!=='0').map(el=>({id:el.dataset.id,title:el.textContent.trim()}));
 }
 function _normName(s) {
   return s.replace(/\.[^.]+$/, '')
@@ -9091,7 +9097,7 @@ function _hubInstallPWA(){
   /* iOS NİHAİ KARAR (2026-07-03): navigator.share KULLANILMAZ — açtığı pencere KISITLI ve "Ana Ekrana Ekle"
      satırı YOK (o satır yalnız Safari'nin KENDİ paylaş menüsünde; Apple o menüyü JS ile açtırmaz, programatik
      ekleme de yasak). iOS'ta mümkün olan tek şey net talimat. Android'de sorun yok: _pwaEvt native kurar. */
-  if(isIOS){showMsg('Ana Ekrana Ekle','iPhone, sitelerin kendini ana ekrana eklemesine izin vermez — 3 dokunuş sizde:<br><br>1) Safari alt çubuğundaki <b>Paylaş</b> düğmesi (kare + yukarı ok)<br>2) Listede <b>aşağı kaydırın</b><br>3) <b>"Ana Ekrana Ekle"</b> → <b>Ekle</b>');return;}
+  if(isIOS){showMsg('Ana Ekrana Ekle','iPhone, sitelerin ana ekrana <b>kendiliğinden</b> eklenmesine izin vermez — 3 dokunuş sizde:<br><br>1) Safari alt çubuğundaki <b>Paylaş</b> düğmesi (<svg viewBox="0 0 24 24" width="15" height="15" style="vertical-align:-2px" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9H6.5A1.5 1.5 0 0 0 5 10.5v9A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 17.5 9H17"/><path d="M12 14V3.2"/><path d="M8.6 6.4 12 3l3.4 3.4"/></svg> kare + yukarı ok) — görünmüyorsa sağ alttaki <b>•••</b> menüsünde <b>Paylaş</b><br>2) Listede <b>aşağı kaydırın</b><br>3) <b>"Ana Ekrana Ekle"</b> → <b>Ekle</b>');return;}
   showMsg('Uygulama Olarak Kur','Chrome/Edge adres çubuğunun <b>sağındaki kurulum simgesine</b> tıklayın (ekran+aşağı ok) veya menü <b>⋮ → "Yükle"</b>.<br><br>Kurulum simgesi yoksa uygulama <b>zaten kuruludur</b> — adres çubuğundaki simgeyle uygulamada açabilirsiniz.<br>Kaldırmak: uygulama penceresinde <b>⋮ → Kaldır</b> (masaüstü kısayolunu silmek uygulamayı kaldırmaz).');
 }
 document.addEventListener('DOMContentLoaded',function(){
