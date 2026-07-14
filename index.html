@@ -8053,6 +8053,35 @@ function _topColor(){
   if(_isIOSLib()) return _HUB_TOP[mode] || '#1b2430';   /* iOS: hub'ın kendi tonu → dikişsiz */
   return mode==='night' ? '#0b1020' : mode==='day' ? '#313a4a' : '#0f1419';  /* masaüstü: DEĞİŞMEDİ */
 }
+
+/* ====== __ZOOM_TONE__ v1 (2026-07-14) — zoom kolu ÜST PANELİN tonunu takip eder ======
+   ESKİ: enterLib kolu SABİT aksan rengiyle boyuyordu (cur().c) → Gece modunda üst panel koyu
+   tona geçerken kol kıpkırmızı / parlak yeşil / parlak mavi kalıyordu (uyumsuz).
+   ARTIK: renk = (görünüm modu × kütüphane) ve üst panelle BİREBİR aynı gradyan:
+     Sade / Gündüz : CSS `header{background:linear-gradient(135deg,var(--lib-c),var(--lib-c2))}` → LIBS c/c2
+                     (Gündüz'de panelin ayrı kuralı YOK → aksan rengini korur; kol da korur)
+     Gece          : CSS `html[data-theme="dark"] #lib-* header` gradyanları → aşağıdaki tablo
+   ⚠️ SSoT İKİZİ: aşağıdaki değerler o CSS satırlarıyla (≈362-367) AYNI TUTULMALI.
+   İKİ KOL kullanır (tablo TEK kaynak):
+     · kütüphane sayfasındaki kol  → #_zoom_tab  (_zoomTabPaint, opak gradyan)
+     · podcast sayfasına ENJEKTE edilen kol → #_ztab (openMedia; DÜZ renk + .82 saydamlık AYNEN korundu,
+       yalnız Gece'de hex değişir → Sade/Gündüz'de podcast kolu eskisiyle BİREBİR aynı).
+     Renk açılış anında pişer; _swOpen her açılışta HTML'i cache'e yeniden yazar → bayat ton olmaz. */
+const _ZOOM_NIGHT = {
+  nhg:      ['#0f2a1d','#1b4a34'],
+  acute:    ['#2a1216','#4c1c26'],
+  acute_en: ['#111f3a','#1f3a63'],
+  bi:       ['#15181f','#262c37'],
+  bi_en:    ['#111f3a','#1f3a63'],
+  en:       ['#111f3a','#1f3a63']
+};
+function _zoomTabPaint(){
+  var t=document.getElementById('_zoom_tab'); if(!t) return;
+  var L=LIBS[currentLib]; if(!L) return;
+  var n=(_libMode()==='night') ? _ZOOM_NIGHT[currentLib] : null;
+  var a=n?n[0]:L.c, b=n?n[1]:L.c2;
+  t.style.background='linear-gradient(135deg,'+a+','+b+')';
+}
 /* ===== FIX #1 — __VIEWREADY__ (Gündüz'ün koyu renge dönmesi) =====================
    Çalışma sırası:  <head> EARLY_TC (DOĞRU renk) → body sonu applyMode() → _syncTopColor()
    applyMode, initApp'ten ÖNCE çalışır. O anda henüz hiçbir .lib-view '.active' DEĞİLDİR →
@@ -8126,7 +8155,7 @@ function enterLib(libId){
   currentLib = libId;
   document.documentElement.style.setProperty('--lib-c', cur().c);
   document.documentElement.style.setProperty('--lib-c2', cur().c2);
-  var _zt=document.getElementById('_zoom_tab'); if(_zt)_zt.style.background=cur().c;  // zoom kolu kütüphane rengi
+  _zoomTabPaint();   /* __ZOOM_TONE__: zoom kolu = üst panelin (mod × kütüphane) tonu */
   var hub=document.getElementById('hub'); if(hub)hub.classList.remove('active');
   document.documentElement.classList.remove('hub-on');   /* __HUBCANVAS__: kök tema rengine dönsün */
   document.querySelectorAll('.lib-view').forEach(function(v){ v.classList.remove('active'); });
@@ -8610,7 +8639,7 @@ async function openMedia(id) {
       +'<button id="_zbin" style=\\"width:36px;height:36px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;line-height:1;-webkit-tap-highlight-color:transparent\\">A+<\/button>'
       +'<span id="_zbl" style=\\"font-size:11px;color:#fff;background:rgba(255,255,255,.15);border-radius:10px;padding:3px 6px;cursor:pointer;-webkit-tap-highlight-color:transparent;min-width:32px;text-align:center\\">'+Math.round(_pz*100)+'%<\/span>'
       +'<button id="_zbout" style=\\"width:36px;height:36px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;line-height:1;-webkit-tap-highlight-color:transparent\\">A−<\/button>'
-      +'<\/div><div id="_ztab" style=\\"width:13px;height:72px;background:'+_libRGBA(cur().c,.82)+';border-radius:0 7px 7px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent\\"><span style=\\"color:#fff;font-size:10px;line-height:1\\">›<\/span><\/div>\';'
+      +'<\/div><div id="_ztab" style=\\"width:13px;height:72px;background:'+_libRGBA((_libMode()==='night'&&_ZOOM_NIGHT[currentLib])?_ZOOM_NIGHT[currentLib][0]:cur().c,.82)+';border-radius:0 7px 7px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent\\"><span style=\\"color:#fff;font-size:10px;line-height:1\\">›<\/span><\/div>\';'
       +'_zc.style.cssText="position:fixed;left:0;top:50%;transform:translateY(-50%) translateX(calc(-100% + 13px));display:flex;flex-direction:row;align-items:center;z-index:9999;transition:transform .3s cubic-bezier(.4,0,.2,1)";'
       +'var _zcOpen=false,_zcTimer=null;'
       +'function _zcShow(){_zc.style.transform="translateY(-50%) translateX(0)";var tab=document.getElementById("_ztab");if(tab)tab.style.transform="rotate(180deg)";clearTimeout(_zcTimer);_zcTimer=setTimeout(_zcHide,2500);}'
@@ -8645,7 +8674,7 @@ async function openMedia(id) {
       +'<button id="_zbin" style=\\"width:36px;height:36px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;line-height:1\\">A+<\/button>'
       +'<span id="_zbl" style=\\"font-size:11px;color:#fff;background:rgba(255,255,255,.15);border-radius:10px;padding:3px 6px;cursor:pointer;min-width:32px;text-align:center\\">'+Math.round(_pzD*100)+'%<\/span>'
       +'<button id="_zbout" style=\\"width:36px;height:36px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;line-height:1\\">A−<\/button>'
-      +'<\/div><div id="_ztab" style=\\"width:13px;height:72px;background:'+_libRGBA(cur().c,.82)+';border-radius:0 7px 7px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0\\"><span style=\\"color:#fff;font-size:10px;line-height:1\\">›<\/span><\/div>\';'
+      +'<\/div><div id="_ztab" style=\\"width:13px;height:72px;background:'+_libRGBA((_libMode()==='night'&&_ZOOM_NIGHT[currentLib])?_ZOOM_NIGHT[currentLib][0]:cur().c,.82)+';border-radius:0 7px 7px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0\\"><span style=\\"color:#fff;font-size:10px;line-height:1\\">›<\/span><\/div>\';'
       +'_zc.style.cssText="position:fixed;left:0;top:50%;transform:translateY(-50%) translateX(calc(-100% + 13px));display:flex;flex-direction:row;align-items:center;z-index:9999;transition:transform .3s cubic-bezier(.4,0,.2,1)";'
       +'var _zcTimer=null;'
       +'function _zcShow(){_zc.style.transform="translateY(-50%) translateX(0)";var tab=document.getElementById("_ztab");if(tab)tab.style.transform="rotate(180deg)";clearTimeout(_zcTimer);_zcTimer=setTimeout(_zcHide,2500);}'
@@ -9692,6 +9721,7 @@ document.addEventListener('DOMContentLoaded',function(){
        (mod × aktif kütüphane). Oturum gerçeğini önce paylaş (gizli modda localStorage yazılamaz). */
     window.__libModeNow = mode;
     if(typeof _syncTopColor==='function') _syncTopColor();
+    if(typeof _zoomTabPaint==='function') _zoomTabPaint();   /* __ZOOM_TONE__: mod değişince kol da panelin yeni tonunu alsın */
     var segs=document.querySelectorAll('#themebar .tm-seg');
     for(var i=0;i<segs.length;i++){ segs[i].classList.toggle('on', segs[i].getAttribute('data-mode')===mode); }
   }
