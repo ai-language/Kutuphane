@@ -2,7 +2,14 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- __SAFEPAINT__ viewport-fit=cover: sayfa artık status bar'ın ALTINA kadar boyanır.
+     Bu olmadan iOS o şeridi TARAYICI dolduruyordu ve rengi yalnız sayfa yüklenirken
+     okuyordu → tema değişince güncellenmiyordu (meta hilesi ve kaydırma dürtüsü İŞE
+     YARAMADI, ikisi de söküldü). Artık şerit BİZİM boyamamız = tema değişince CSS ile
+     anında değişir, tarayıcının hiçbir şeyi "yeniden okuması" gerekmez.
+     İçerik çentiğin altına kaymasın diye body'ye env(safe-area-inset-*) dolgusu verildi.
+     Masaüstünde env(...) = 0 → SIFIR değişiklik. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>NHG-Richtlijnen - Voortgang Tracker</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" id="_themec" content="#0f1419">
@@ -414,6 +421,29 @@
     html[data-theme="light"] #themebar{ background:rgba(255,255,255,.96); }
     #themebar .tm-seg{ padding:8px 13px; font-size:.74rem; }
   }
+
+  /* ============================================================
+     __SAFEPAINT__ — güvenli alan dolgusu (viewport-fit=cover eşlikçisi)
+     Üst şerit artık sayfanın KENDİ arka planıyla boyanıyor:
+       Sade → body #f0f4f8   ·   Gece → #0b1020   ·   Gündüz → açık gradyanın tepesi
+     Hepsi saf CSS → tema düğmesine basar basmaz değişir. Tarayıcı devre dışı,
+     "yeniden okuma" beklemiyoruz. Masaüstü/Android: env(...) = 0 → SIFIR değişiklik.
+     ============================================================ */
+  body{
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  /* #hub sabit (inset:0) → body dolgusunu görmez; kendi safe-area dolgusu ZATEN vardı.
+     Çentik şeridini hub'ın kendi koyu gradyanı boyar (hub her modda koyu → dikişsiz). */
+
+  /* NHG site katmanı sabit + inset:0 → cover'da çentiğin ALTINA girerdi.
+     Mutlak konumlu çocuklar dolgu KUTUSUNA göre yerleşir (padding onları itmez) → doğrudan offset. */
+  #nhg-overlay iframe{ top: env(safe-area-inset-top, 0px); height:auto; }
+  #nhg-overlay-bar{ top: calc(8px + env(safe-area-inset-top, 0px)); }
+  /* "Yeni sürüm mevcut" bandı top:0 ile ekleniyor → çentiğin altında kalmasın */
+  #_lib_upd_b{ padding-top: calc(10px + env(safe-area-inset-top, 0px)) !important; }
 
   /* ============================================================
      v5.3 — iPhone katmanı
@@ -7918,59 +7948,30 @@ function _libMode(){
   try{ var m=localStorage.getItem('__lib_mode'); if(m==='night'||m==='day') return m; }catch(e){}
   return 'original';
 }
-function _topColor(){
-  var mode=_libMode();
-  var v=document.querySelector('.lib-view.active');
-  if(!v){ /* HUB — arka planı her modda koyu kalır (tema hub'ı açmıyor); Gündüz'de üstüne açık gradyan sızar */
-    return mode==='night' ? '#0b1020' : mode==='day' ? '#313a4a' : '#0f1419';
-  }
-  var id=v.getAttribute('data-lib');
-  if(mode==='night') return _LIB_NIGHT_TOP[id] || '#0b1020';
-  return (LIBS[id] && LIBS[id].c) || '#0f1419';   /* Sade + Gündüz: başlık hâlâ kütüphane gradyanı */
-}
 /* iOS tespiti — YETENEK tabanlı (PWA/SW bağlamında iPhone kendine "Macintosh" der; salt UA testi kaçırır). */
 function _isIOSLib(){
   var ua=navigator.userAgent||'';
   return /iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && (navigator.maxTouchPoints||0) > 1);
 }
+function _topColor(){
+  var mode=_libMode();
+  /* iPhone: kullanıcı üst şeridin TEMANIN rengini almasını istiyor (kütüphane paneli rengini DEĞİL).
+     Safari'nin alt adres çubuğu da bu meta'yı kullanır → şeritle tutarlı kalsın.
+     (Asıl üst şerit artık __SAFEPAINT__ ile bizim CSS'imizle boyanıyor; bkz. viewport-fit=cover.) */
+  if(_isIOSLib()){
+    return mode==='night' ? '#0b1020' : mode==='day' ? '#dde9f6' : '#f0f4f8';
+  }
+  /* Masaüstü PWA: çerçeve = üstteki renkli panelin rengi (kullanıcı bunu onayladı — DOKUNMA). */
+  var v=document.querySelector('.lib-view.active');
+  if(!v) return mode==='night' ? '#0b1020' : mode==='day' ? '#313a4a' : '#0f1419';
+  var id=v.getAttribute('data-lib');
+  if(mode==='night') return _LIB_NIGHT_TOP[id] || '#0b1020';
+  return (LIBS[id] && LIBS[id].c) || '#0f1419';
+}
 function _syncTopColor(){
   var m=document.getElementById('_themec'); if(!m) return;
-  var c=_topColor();
-  /* --- MASAÜSTÜ YOLU (çalışıyor, DOKUNMA) --- */
-  m.setAttribute('content', c);
+  m.setAttribute('content', _topColor());
   try{ var n=m.cloneNode(true); m.parentNode.replaceChild(n,m); }catch(e){}
-
-  /* --- iOS SAFARI EKİ --------------------------------------------------------
-     WebKit üst şeridi salt `content` attribute değişiminde YENİDEN BOYAMIYOR:
-     renk yalnız sayfa YÜKLENİRKEN okunuyor → kullanıcı "podcast'e girip çıkınca
-     düzeliyor" dedi (girip çıkmak = tam sayfa yeniden yüklemesi). Üç kademeli
-     dürtme; her biri ayrı bir WebKit yolunu tetikler, hepsi görsel olarak sessiz.
-     Masaüstü bu bloğa HİÇ girmez. */
-  if(!_isIOSLib()) return;
-  try{
-    /* (a) düğümü head'in SONUNA TAZE olarak koy — yerinde değiştirmek yetmiyor;
-           WebKit meta listesini yeniden taramaya zorlanır. */
-    var old=document.getElementById('_themec');
-    if(old && old.parentNode) old.parentNode.removeChild(old);
-    var fresh=document.createElement('meta');
-    fresh.setAttribute('name','theme-color');
-    fresh.id='_themec';
-    fresh.setAttribute('content', c);
-    document.head.appendChild(fresh);
-
-    /* (b) stil/layout hesabını zorla → bekleyen theme-color bildirimi flush olsun. */
-    void document.documentElement.offsetHeight;
-
-    /* (c) 1px kaydırma dürtüsü: Safari üst şeridi kaydırma sırasında yeniden örnekler.
-           Konum bir sonraki karede AYNEN geri konur (göze görünmez). Sayfa kaydırılamıyorsa
-           (hub: #hub kendi içinde kayar, pencere kaymaz) sessizce atlanır — zarar yok. */
-    var se=document.scrollingElement||document.documentElement;
-    if(se && se.scrollHeight > se.clientHeight + 1){
-      var y=se.scrollTop;
-      se.scrollTop = y + (y > 0 ? -1 : 1);
-      requestAnimationFrame(function(){ se.scrollTop = y; });
-    }
-  }catch(e){}
 }
 
 /* Hub <-> kütüphane gecisi — ayni sekme, URL degismez (view-switch). */
