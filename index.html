@@ -17,6 +17,32 @@
 <title>Kütüphane Arşivi</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" id="_themec" content="#0f1419">
+<script>
+/* ====== __EARLY_TC__ — theme-color'ı PARSE ANINDA doğru yaz ======================
+   SORUN (kullanıcı gözlemi: "bazen değişiyor, bazen değişmiyor") = YARIŞ.
+   Meta yukarıda SABİT #0f1419 ile parse ediliyordu; doğru rengi yazan kod ise <body>'nin
+   EN SONUNDA çalışıyor. iOS Safari üst/alt çerçeve rengini bir kez COMMIT edip bir daha
+   bakmıyor → commit bizim yazımızdan önce düşerse renk yanlış kalıyor, sonra düşerse doğru
+   oluyor. Yükleme hızına bağlı = "bazen". Alt çerçeve hiç yetişemiyordu.
+   ÇÖZÜM: rengi burada, meta'nın hemen altında, Safari HİÇBİR ŞEY COMMIT ETMEDEN yaz.
+   Yarış tamamen kalkar. Masaüstü/PWA için de iyileşme (yanlış renk flaşı yok).
+   ⚠️ Renk tabloları aşağıdaki _themeBg / _HUB_TOP ile AYNI TUTULMALI (SSoT ikizi). */
+(function(){
+  try{
+    var m=null; try{ m=localStorage.getItem('__lib_mode'); }catch(e){}
+    if(m!=='night' && m!=='day') m='original';
+    var v=''; try{ v=localStorage.getItem('__lib_lastview')||''; }catch(e){}   /* '' = hub */
+    var ua=navigator.userAgent||'';
+    var ios=/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && (navigator.maxTouchPoints||0)>1);
+    var THEME   ={original:'#f0f4f8', night:'#0b1020', day:'#dde9f6'};   /* kütüphane sayfası */
+    var HUB_IOS ={original:'#1b2430', night:'#121b35', day:'#3b445d'};   /* iOS hub (CSS ile birebir) */
+    var HUB_DESK={original:'#0f1419', night:'#0b1020', day:'#313a4a'};   /* masaüstü hub (değişmedi) */
+    var c = v ? THEME[m] : (ios ? HUB_IOS[m] : HUB_DESK[m]);
+    var el=document.getElementById('_themec');
+    if(el) el.setAttribute('content', c);
+  }catch(e){}
+})();
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kütüphane">
@@ -8059,6 +8085,7 @@ function enterLib(libId){
   document.documentElement.classList.remove('hub-on');   /* __HUBCANVAS__: kök tema rengine dönsün */
   document.querySelectorAll('.lib-view').forEach(function(v){ v.classList.remove('active'); });
   var v=curView(); if(v)v.classList.add('active');
+  try{ localStorage.setItem('__lib_lastview', libId); }catch(e){}   /* __EARLY_TC__: sonraki yüklemede doğru renk parse anında yazılsın */
   _syncTopColor();   /* .active YERLEŞTİKTEN SONRA — _topColor aktif view'a bakar */
   var zw=document.getElementById('_zoom_wrap'); if(zw)zw.style.display='flex';
   try{ window.scrollTo(0,0); }catch(e){}
@@ -8071,6 +8098,7 @@ function showHub(){
   document.querySelectorAll('.lib-view').forEach(function(v){ v.classList.remove('active'); });
   var hub=document.getElementById('hub'); if(hub)hub.classList.add('active');
   document.documentElement.classList.add('hub-on');   /* __HUBCANVAS__: alt güvenli-alan şeridi hub tonuna boyansın */
+  try{ localStorage.setItem('__lib_lastview', ''); }catch(e){}   /* __EARLY_TC__: '' = hub */
   _syncTopColor();   /* aktif lib kalmadı → hub rengi */
   var zw=document.getElementById('_zoom_wrap'); if(zw)zw.style.display='none';
   try{ window.scrollTo(0,0); }catch(e){}
