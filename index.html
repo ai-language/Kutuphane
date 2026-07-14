@@ -401,7 +401,19 @@
   html[data-theme="light"] #themebar .tm-seg{ color:rgba(51,65,85,.7); }
   html[data-theme="light"] #themebar .tm-seg:hover{ color:#0f172a; }
   html[data-theme="light"] #themebar .tm-seg.on{ color:#fff; background:linear-gradient(180deg,#3b82f6,#2563eb); box-shadow:0 3px 10px rgba(37,99,235,.4); }
-  @media (max-width:600px){ #themebar{ right:50%; transform:translateX(50%); bottom:calc(12px + env(safe-area-inset-bottom, 0px)); } #themebar .tm-seg{ padding:8px 13px; font-size:.74rem; } }
+  /* iPhone'da tema çubuğu momentum kaydırma sırasında ekranın ORTASINA fırlıyordu (kullanıcı gördü).
+     Sebep: position:fixed + transform:translateX(50%) + backdrop-filter üçlüsü — iOS Safari öğeyi
+     kendi kompozisyon katmanına alıp kaydırma boyunca layout viewport yerine yanlış konuma çiziyor.
+     Ortalamayı transform'suz yap (left/right + margin:auto) ve mobilde blur'u kaldır → tetikleyici kalmaz. */
+  @media (max-width:600px){
+    #themebar{ left:0; right:0; transform:none; margin:0 auto;
+      width:-webkit-fit-content; width:fit-content;
+      bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+      backdrop-filter:none; -webkit-backdrop-filter:none;
+      background:rgba(18,26,46,.94); }
+    html[data-theme="light"] #themebar{ background:rgba(255,255,255,.96); }
+    #themebar .tm-seg{ padding:8px 13px; font-size:.74rem; }
+  }
 
   /* ============================================================
      v5.3 — iPhone katmanı
@@ -7892,17 +7904,49 @@ function _libRGBA(hex,a){
   return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
 }
 
+/* ====== v5.3 __TOPCOLOR__ — üst çerçeve (theme-color) TEK KAYNAK ======
+   ESKİ BUG: üç ayrı yer aynı meta'yı birbirinin üstüne yazıyordu →
+     enterLib  : cur().c  (Gece modunda başlık koyuya çevrildiği hâlde parlak yeşil/kırmızı kalırdı)
+     showHub   : sabit '#0f1419' (moddan habersiz)
+     applyMode : hub renkleri — KÜTÜPHANE İÇİNDEYKEN BİLE (başlıkla uyuşmuyordu)
+   Kullanıcının gördüğü "mod değişince üst panel uymuyor, girip çıkınca uyuyor" tam olarak buydu:
+   meta güncelleniyordu ama YANLIŞ renge; enterLib sonradan doğrusunu geri yazıyordu.
+   Artık tek fonksiyon: (görünüm modu × aktif kütüphane) → gerçekte en üstte duran rengi verir. */
+const _LIB_NIGHT_TOP = { nhg:'#0f2a1d', acute:'#2a1216', acute_en:'#111f3a', bi:'#15181f', bi_en:'#111f3a', en:'#111f3a' }; /* CSS'teki gece başlık override'larının ilk durağı */
+function _libMode(){
+  if(typeof window.__libModeNow==='string') return window.__libModeNow;   /* oturum gerçeği (gizli mod: localStorage yazılamaz) */
+  try{ var m=localStorage.getItem('__lib_mode'); if(m==='night'||m==='day') return m; }catch(e){}
+  return 'original';
+}
+function _topColor(){
+  var mode=_libMode();
+  var v=document.querySelector('.lib-view.active');
+  if(!v){ /* HUB — arka planı her modda koyu kalır (tema hub'ı açmıyor); Gündüz'de üstüne açık gradyan sızar */
+    return mode==='night' ? '#0b1020' : mode==='day' ? '#313a4a' : '#0f1419';
+  }
+  var id=v.getAttribute('data-lib');
+  if(mode==='night') return _LIB_NIGHT_TOP[id] || '#0b1020';
+  return (LIBS[id] && LIBS[id].c) || '#0f1419';   /* Sade + Gündüz: başlık hâlâ kütüphane gradyanı */
+}
+function _syncTopColor(){
+  var m=document.getElementById('_themec'); if(!m) return;
+  m.setAttribute('content', _topColor());
+  /* Safari + masaüstü PWA bazı sürümlerde salt attribute değişimini ıskalıyor
+     ("çıkıp girmek gerekiyor") → düğümü tazeleyerek yeniden okumaya zorla. id klonda korunur. */
+  try{ var n=m.cloneNode(true); m.parentNode.replaceChild(n,m); }catch(e){}
+}
+
 /* Hub <-> kütüphane gecisi — ayni sekme, URL degismez (view-switch). */
 function enterLib(libId){
   if(!LIBS[libId]) return;
   currentLib = libId;
   document.documentElement.style.setProperty('--lib-c', cur().c);
   document.documentElement.style.setProperty('--lib-c2', cur().c2);
-  var _tc=document.getElementById('_themec'); if(_tc)_tc.setAttribute('content',cur().c); /* üst çerçeve = kütüphane rengi */
   var _zt=document.getElementById('_zoom_tab'); if(_zt)_zt.style.background=cur().c;  // zoom kolu kütüphane rengi
   var hub=document.getElementById('hub'); if(hub)hub.classList.remove('active');
   document.querySelectorAll('.lib-view').forEach(function(v){ v.classList.remove('active'); });
   var v=curView(); if(v)v.classList.add('active');
+  _syncTopColor();   /* .active YERLEŞTİKTEN SONRA — _topColor aktif view'a bakar */
   var zw=document.getElementById('_zoom_wrap'); if(zw)zw.style.display='flex';
   try{ window.scrollTo(0,0); }catch(e){}
   loadState();
@@ -7913,7 +7957,7 @@ function enterLib(libId){
 function showHub(){
   document.querySelectorAll('.lib-view').forEach(function(v){ v.classList.remove('active'); });
   var hub=document.getElementById('hub'); if(hub)hub.classList.add('active');
-  var _tc=document.getElementById('_themec'); if(_tc)_tc.setAttribute('content','#0f1419'); /* üst çerçeve = hub koyu arka planı */
+  _syncTopColor();   /* aktif lib kalmadı → hub rengi */
   var zw=document.getElementById('_zoom_wrap'); if(zw)zw.style.display='none';
   try{ window.scrollTo(0,0); }catch(e){}
   _updateHubMeta();
@@ -9439,8 +9483,11 @@ document.addEventListener('DOMContentLoaded',function(){
     if(mode==='night'){ root.setAttribute('data-theme','dark'); root.classList.remove('no-bg'); }
     else if(mode==='day'){ root.setAttribute('data-theme','light'); root.classList.remove('no-bg'); }
     else { root.removeAttribute('data-theme'); root.classList.add('no-bg'); }
-    var meta=document.getElementById('_themec');
-    if(meta) meta.setAttribute('content', mode==='day' ? '#dde9f6' : mode==='night' ? '#0b1020' : '#0f1419');
+    /* __TOPCOLOR__: üst çerçeveyi ARTIK BURADA yazmıyoruz. Eskiden burası hub renklerini
+       yazıyordu — kütüphane içindeyken bile → başlıkla uyuşmuyordu. Tek kaynak _syncTopColor
+       (mod × aktif kütüphane). Oturum gerçeğini önce paylaş (gizli modda localStorage yazılamaz). */
+    window.__libModeNow = mode;
+    if(typeof _syncTopColor==='function') _syncTopColor();
     var segs=document.querySelectorAll('#themebar .tm-seg');
     for(var i=0;i<segs.length;i++){ segs[i].classList.toggle('on', segs[i].getAttribute('data-mode')===mode); }
   }
