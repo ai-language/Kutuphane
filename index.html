@@ -34,12 +34,27 @@
     var v=''; try{ v=localStorage.getItem('__lib_lastview')||''; }catch(e){}   /* '' = hub */
     var ua=navigator.userAgent||'';
     var ios=/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && (navigator.maxTouchPoints||0)>1);
-    var THEME   ={original:'#f0f4f8', night:'#0b1020', day:'#dde9f6'};   /* kütüphane sayfası */
-    var HUB_IOS ={original:'#1b2430', night:'#121b35', day:'#3b445d'};   /* iOS hub (CSS ile birebir) */
-    var HUB_DESK={original:'#0f1419', night:'#0b1020', day:'#313a4a'};   /* masaüstü hub (değişmedi) */
-    var c = v ? THEME[m] : (ios ? HUB_IOS[m] : HUB_DESK[m]);
     var el=document.getElementById('_themec');
-    if(el) el.setAttribute('content', c);
+    if(!el) return;
+
+    /* ===== FIX #2 — iOS SAFARI: theme-color'ı HİÇ VERME (şeffaf çerçeve) ==========
+       Kullanıcı gözlemi: "şeffafken görüntü güzel", "Sade'de alt çerçeve şeffaf, arka planı
+       gösteriyor". Safari'ye theme-color VERİLMEZSE kendi UYARLANAN (şeffaf) çerçevesini
+       kullanır ve sayfanın arka planını CANLI örnekler → her modda kendiliğinden doğru;
+       bizim renk yazmamıza hiç gerek kalmaz.
+       ⚠️ Bunu daha önce denemiştim ama JS ile, sayfa PARSE OLDUKTAN SONRA kaldırıyordum —
+       Safari o ana kadar bir renge çoktan KİLİTLENMİŞ oluyordu, o yüzden çalışmadı.
+       Burada meta'nın hemen altındayız: Safari hiçbir şeye kilitlenmeden kaldırılıyor.
+       PWA (standalone) + masaüstü: meta KALIR — orada zaten çalışıyor, dokunulmuyor. */
+    var standalone=false;
+    try{ standalone = (navigator.standalone===true) ||
+         !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); }catch(e){}
+    if(ios && !standalone){ el.parentNode.removeChild(el); return; }
+
+    var THEME   ={original:'#f0f4f8', night:'#0b1020', day:'#dde9f6'};   /* kütüphane sayfası */
+    var HUB_IOS ={original:'#1b2430', night:'#121b35', day:'#3b445d'};   /* iOS PWA hub (CSS ile birebir) */
+    var HUB_DESK={original:'#0f1419', night:'#0b1020', day:'#313a4a'};   /* masaüstü hub (değişmedi) */
+    el.setAttribute('content', v ? THEME[m] : (ios ? HUB_IOS[m] : HUB_DESK[m]));
   }catch(e){}
 })();
 </script>
@@ -8035,8 +8050,21 @@ function _topColor(){
   if(_isIOSLib()) return _HUB_TOP[mode] || '#1b2430';   /* iOS: hub'ın kendi tonu → dikişsiz */
   return mode==='night' ? '#0b1020' : mode==='day' ? '#313a4a' : '#0f1419';  /* masaüstü: DEĞİŞMEDİ */
 }
+/* ===== FIX #1 — __VIEWREADY__ (Gündüz'ün koyu renge dönmesi) =====================
+   Çalışma sırası:  <head> EARLY_TC (DOĞRU renk) → body sonu applyMode() → _syncTopColor()
+   applyMode, initApp'ten ÖNCE çalışır. O anda henüz hiçbir .lib-view '.active' DEĞİLDİR →
+   _topColor() "hub'dayız" sanıp HUB rengini yazar ve EARLY_TC'nin doğru değerini EZER.
+   Sonra initApp → enterLib gelip tekrar doğrusunu yazar; arada kalan pencerede yanlış renk
+   commit edilirse orada donar.
+   Neden en çok GÜNDÜZ'de görünüyordu: tema #dde9f6 (AÇIK) vs hub #3b445d (KOYU) → göze batar.
+   Gece'de #0b1020 vs #121b35 (ikisi de koyu) → fark görünmez, "istikrarlı" sanılıyordu.
+   Kullanıcı: "gündüz uygulanmıyor, zaten geceye (ya da koyu renge) dönüyor" = birebir bu.
+   ÇÖZÜM: görünüm BELLİ OLANA KADAR (enterLib/showHub çağrılana kadar) meta'ya hiç dokunma.
+   EARLY_TC parse anında doğrusunu zaten yazdı; üstüne yanlış yazan tek şey buydu. */
+var _viewReady = false;
 function _syncTopColor(){
-  var m=document.getElementById('_themec'); if(!m) return;
+  if(!_viewReady) return;   /* görünüm henüz belli değil → EARLY_TC'nin doğru değerini EZME */
+  var m=document.getElementById('_themec'); if(!m) return;   /* iOS Safari'de meta yok (FIX #2) → no-op */
   m.setAttribute('content', _topColor());
   try{ var n=m.cloneNode(true); m.parentNode.replaceChild(n,m); }catch(e){}
 }
@@ -8101,6 +8129,7 @@ function enterLib(libId){
   document.querySelectorAll('.lib-view').forEach(function(v){ v.classList.remove('active'); });
   var v=curView(); if(v)v.classList.add('active');
   try{ localStorage.setItem('__lib_lastview', libId); }catch(e){}   /* __EARLY_TC__: sonraki yüklemede doğru renk parse anında yazılsın */
+  _viewReady = true;   /* __VIEWREADY__: görünüm artık belli */
   _syncTopColor();   /* .active YERLEŞTİKTEN SONRA — _topColor aktif view'a bakar */
   var zw=document.getElementById('_zoom_wrap'); if(zw)zw.style.display='flex';
   try{ window.scrollTo(0,0); }catch(e){}
@@ -8114,6 +8143,7 @@ function showHub(){
   var hub=document.getElementById('hub'); if(hub)hub.classList.add('active');
   document.documentElement.classList.add('hub-on');   /* __HUBCANVAS__: alt güvenli-alan şeridi hub tonuna boyansın */
   try{ localStorage.setItem('__lib_lastview', ''); }catch(e){}   /* __EARLY_TC__: '' = hub */
+  _viewReady = true;   /* __VIEWREADY__: görünüm artık belli */
   _syncTopColor();   /* aktif lib kalmadı → hub rengi */
   var zw=document.getElementById('_zoom_wrap'); if(zw)zw.style.display='none';
   try{ window.scrollTo(0,0); }catch(e){}
