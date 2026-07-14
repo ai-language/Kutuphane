@@ -8055,18 +8055,13 @@ function _topColor(){
 }
 
 /* ====== __ZOOM_TONE__ v1 (2026-07-14) — zoom kolu ÜST PANELİN tonunu takip eder ======
-   ESKİ: kol SABİT aksan rengiyle boyanıyordu (cur().c) → Gece modunda üst panel koyu tona
-   geçerken kol kıpkırmızı / parlak yeşil / parlak mavi kalıyordu (uyumsuz).
-   ARTIK: renk = (görünüm modu × kütüphane), panelle aynı:
+   ESKİ: enterLib kolu SABİT aksan rengiyle boyuyordu (cur().c) → Gece modunda üst panel koyu
+   tona geçerken kol kıpkırmızı / parlak yeşil / parlak mavi kalıyordu (uyumsuz).
+   ARTIK: renk = (görünüm modu × kütüphane) ve üst panelle BİREBİR aynı gradyan:
      Sade / Gündüz : CSS `header{background:linear-gradient(135deg,var(--lib-c),var(--lib-c2))}` → LIBS c/c2
-                     (Gündüz'de panelin ayrı kuralı YOK → aksanı korur; kol da korur)
+                     (Gündüz'de panelin ayrı kuralı YOK → aksan rengini korur; kol da korur)
      Gece          : CSS `html[data-theme="dark"] #lib-* header` gradyanları → aşağıdaki tablo
-   ⚠️ SSoT İKİZİ: aşağıdaki değerler o CSS satırlarıyla (≈362-367) AYNI TUTULMALI.
-   İKİ KOL kullanır (tablo TEK kaynak):
-     · kütüphane sayfasındaki kol → #_zoom_tab (_zoomTabPaint, opak gradyan)
-     · podcast sayfasına ENJEKTE edilen kol → #_ztab (openMedia; DÜZ renk + .82 saydamlık AYNEN
-       korunur, yalnız Gece'de hex değişir → Sade/Gündüz'de podcast kolu eskisiyle BİREBİR aynı).
-     Renk açılış anında pişer; _swOpen her açılışta HTML'i cache'e yeniden yazar → bayat ton olmaz. */
+   ⚠️ SSoT İKİZİ: aşağıdaki değerler o CSS satırlarıyla (≈362-367) AYNI TUTULMALI. */
 const _ZOOM_NIGHT = {
   nhg:      ['#0f2a1d','#1b4a34'],
   acute:    ['#2a1216','#4c1c26'],
@@ -8639,7 +8634,7 @@ async function openMedia(id) {
       +'<button id="_zbin" style=\\"width:36px;height:36px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;line-height:1;-webkit-tap-highlight-color:transparent\\">A+<\/button>'
       +'<span id="_zbl" style=\\"font-size:11px;color:#fff;background:rgba(255,255,255,.15);border-radius:10px;padding:3px 6px;cursor:pointer;-webkit-tap-highlight-color:transparent;min-width:32px;text-align:center\\">'+Math.round(_pz*100)+'%<\/span>'
       +'<button id="_zbout" style=\\"width:36px;height:36px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;line-height:1;-webkit-tap-highlight-color:transparent\\">A−<\/button>'
-      +'<\/div><div id="_ztab" style=\\"width:13px;height:72px;background:'+_libRGBA((_libMode()==='night'&&_ZOOM_NIGHT[currentLib])?_ZOOM_NIGHT[currentLib][0]:cur().c,.82)+';border-radius:0 7px 7px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent\\"><span style=\\"color:#fff;font-size:10px;line-height:1\\">›<\/span><\/div>\';'
+      +'<\/div><div id="_ztab" style=\\"width:13px;height:72px;background:'+_libRGBA(cur().c,.82)+';border-radius:0 7px 7px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent\\"><span style=\\"color:#fff;font-size:10px;line-height:1\\">›<\/span><\/div>\';'
       +'_zc.style.cssText="position:fixed;left:0;top:50%;transform:translateY(-50%) translateX(calc(-100% + 13px));display:flex;flex-direction:row;align-items:center;z-index:9999;transition:transform .3s cubic-bezier(.4,0,.2,1)";'
       +'var _zcOpen=false,_zcTimer=null;'
       +'function _zcShow(){_zc.style.transform="translateY(-50%) translateX(0)";var tab=document.getElementById("_ztab");if(tab)tab.style.transform="rotate(180deg)";clearTimeout(_zcTimer);_zcTimer=setTimeout(_zcHide,2500);}'
@@ -8674,7 +8669,7 @@ async function openMedia(id) {
       +'<button id="_zbin" style=\\"width:36px;height:36px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;line-height:1\\">A+<\/button>'
       +'<span id="_zbl" style=\\"font-size:11px;color:#fff;background:rgba(255,255,255,.15);border-radius:10px;padding:3px 6px;cursor:pointer;min-width:32px;text-align:center\\">'+Math.round(_pzD*100)+'%<\/span>'
       +'<button id="_zbout" style=\\"width:36px;height:36px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;line-height:1\\">A−<\/button>'
-      +'<\/div><div id="_ztab" style=\\"width:13px;height:72px;background:'+_libRGBA((_libMode()==='night'&&_ZOOM_NIGHT[currentLib])?_ZOOM_NIGHT[currentLib][0]:cur().c,.82)+';border-radius:0 7px 7px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0\\"><span style=\\"color:#fff;font-size:10px;line-height:1\\">›<\/span><\/div>\';'
+      +'<\/div><div id="_ztab" style=\\"width:13px;height:72px;background:'+_libRGBA(cur().c,.82)+';border-radius:0 7px 7px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0\\"><span style=\\"color:#fff;font-size:10px;line-height:1\\">›<\/span><\/div>\';'
       +'_zc.style.cssText="position:fixed;left:0;top:50%;transform:translateY(-50%) translateX(calc(-100% + 13px));display:flex;flex-direction:row;align-items:center;z-index:9999;transition:transform .3s cubic-bezier(.4,0,.2,1)";'
       +'var _zcTimer=null;'
       +'function _zcShow(){_zc.style.transform="translateY(-50%) translateX(0)";var tab=document.getElementById("_ztab");if(tab)tab.style.transform="rotate(180deg)";clearTimeout(_zcTimer);_zcTimer=setTimeout(_zcHide,2500);}'
