@@ -176,9 +176,21 @@
      BONUS: Safari'nin ALT çerçevesi sayfanın alt kenarındaki gerçek pikseli örneklüyor
      (beyaz kalmasının sebebi buydu) → kök koyulunca o çerçeve de hub tonuna gelir.
      ============================================================ */
-  html.hub-on{ background:#1b2430; }                        /* Sade: hub gradyanının alt ucu */
-  html[data-theme="light"].hub-on{ background:#3b445d; }    /* Gündüz: hub'ın açık zemin üstündeki efektif alt tonu */
-  html[data-theme="dark"].hub-on{ background:#0b1020; }     /* Gece: DEĞİŞMESİN (kök bugünküyle birebir aynı) */
+     v2 — CİHAZ TESTİ DÜZELTMESİ: köke yazmak Gündüz'de TUTTU ama Sade/Gece'de TUTMADI.
+     Sebep: Gündüz'de `body{background:transparent}` → şerit köke düşüyor. Sade/Gece'de body
+     OPAK → şeridi boyayan BODY'nin arka planı. Yani ikisini de hedeflemek gerekiyor.
+     ⚠️ TUZAK: Gündüz'de body'ye arka plan VERİLEMEZ — `body::before` (z-index:-1) kök
+     arka planının hemen üstünde, body'nin KENDİ arka planının ALTINDA boyanır → body'ye
+     renk verilirse açık gradyan tamamen gizlenir ve sayfa kararır. Gündüz'de yalnız kök.
+     Hedef ton = hub gradyanının o moddaki EFEKTİF alt ucu (şerit ile hub dikişsiz olsun). */
+  /* Sade — hub OPAK gradyan (kökü/body'yi hiç görmez) → ikisi de güvenle koyultulur */
+  html.hub-on{ background:#1b2430; }
+  html.hub-on body{ background:#1b2430; }
+  /* Gündüz — YALNIZ kök. body ŞEFFAF KALMALI (yoksa body::before'un açık gradyanı gizlenir) */
+  html[data-theme="light"].hub-on{ background:#3b445d; }
+  /* Gece — hub, rgba(20,29,58,.82) ile kökün üstünde harmanlanır → efektif alt uç ≈ #121b35 */
+  html[data-theme="dark"].hub-on{ background:#121b35; }
+  html[data-theme="dark"].hub-on body{ background:#121b35; }
   #hub.active{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%; }
   /* Hub alt araç butonları (Şifre / Etiketle) + admin görünürlük + indirileni sil */
   .hub-tools{ margin-top:24px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
@@ -7981,50 +7993,59 @@ function _isIOSLib(){
 function _themeBg(mode){
   return mode==='night' ? '#0b1020' : mode==='day' ? '#dde9f6' : '#f0f4f8';
 }
+/* Hub'ın EFEKTİF tonu — __HUBCANVAS__ CSS'iyle BİREBİR aynı değerler.
+   iOS Safari'de hub'dayken çerçeve bunu alır → çerçeve ile hub arasında ton farkı olmaz
+   (kullanıcının 3. endişesi). */
+const _HUB_TOP = { original:'#1b2430', night:'#121b35', day:'#3b445d' };
 function _topColor(){
   var mode=_libMode();
   var v=document.querySelector('.lib-view.active');
 
-  /* KÜTÜPHANE SAYFASI — iPhone VE masaüstü PWA: çerçeve TEMAYA göre boyanır,
+  /* KÜTÜPHANE SAYFASI — her platformda çerçeve TEMAYA göre boyanır,
      üstteki renkli panele göre DEĞİL (kullanıcı kararı 2026-07-14). */
   if(v) return _themeBg(mode);
 
-  /* HUB — bugünkü görünüm AYNEN korunur (kullanıcı: "hubdaki görünüm değişmesin").
-     iPhone'da hub şeridini zaten CSS boyuyor (viewport-fit=cover); meta orada yalnız Safari'nin
-     alt adres çubuğunu etkiler → onu temaya bağlı tut, şeritle tutarlı kalsın. */
-  if(_isIOSLib()) return _themeBg(mode);
-  return mode==='night' ? '#0b1020' : mode==='day' ? '#313a4a' : '#0f1419';
+  /* HUB */
+  if(_isIOSLib()) return _HUB_TOP[mode] || '#1b2430';   /* iOS: hub'ın kendi tonu → dikişsiz */
+  return mode==='night' ? '#0b1020' : mode==='day' ? '#313a4a' : '#0f1419';  /* masaüstü: DEĞİŞMEDİ */
 }
-/* Ana ekrandan açılmış PWA mı (iOS standalone / display-mode:standalone)? */
+function _syncTopColor(){
+  var m=document.getElementById('_themec'); if(!m) return;
+  m.setAttribute('content', _topColor());
+  try{ var n=m.cloneNode(true); m.parentNode.replaceChild(n,m); }catch(e){}
+}
+
+/* ====== iOS SAFARI — __SAFARI_NAV__ =========================================
+   Safari'de üst status bar + alt adres çubuğu TARAYICININ çerçevesidir; oraya CSS ile
+   boyayamayız (viewport-fit=cover orayı bize vermiyor — ekran görüntüsüyle doğrulandı).
+   Rengi YALNIZ SAYFA YÜKLENİRKEN belirlenir ve sayfa içinden DEĞİŞTİRİLEMEZ.
+   CİHAZDA ÇUVALLAYAN 6 YOL (BİR DAHA DENEME):
+     1) meta content güncelleme  2) düğüm cloneNode/replaceChild  3) düğümü silip yeniden ekleme
+     4) meta'yı tamamen kaldırma (Safari arka planı örnekledi ama O DA yüklemede donuyor)
+     5) zorunlu reflow           6) 1px kaydırma dürtüsü
+   location.reload() DE YETMİYOR — kullanıcı denedi: hub yeniden açılıyor ama çerçeve donuk
+   kalıyor (Safari aynı URL'ye yeniden girişte çerçeveyi geri yüklüyor).
+   ÇALIŞAN TEK ŞEY: FARKLI BİR URL'ye GERÇEK NAVİGASYON — podcast'e girip çıkmanın çerçeveyi
+   düzeltmesinin sebebi tam olarak bu. O yüzden tema değişiminde ?t=<zaman> ile navigasyon
+   yapıyoruz; hangi kütüphanede olduğu + kaydırma konumu saklanıp aynen geri yükleniyor.
+   PWA ve masaüstü bu fonksiyona HİÇ girmez (orada çerçeve zaten anında değişiyor). */
 function _isStandaloneLib(){
   try{
     if(window.navigator.standalone===true) return true;
     return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
   }catch(e){ return false; }
 }
-function _syncTopColor(){
-  /* ====== iOS SAFARI (PWA DEĞİL) — __SAFARI_SAMPLE__ ======================
-     Safari'de üst status bar + alt adres çubuğu TARAYICININ çerçevesidir; oraya biz
-     boyayamayız (viewport-fit=cover orayı bize vermiyor — ekran görüntüsüyle doğrulandı).
-     O çerçeveyi YALNIZ theme-color meta'sı belirler ve iOS Safari onu SADECE SAYFA
-     YÜKLENİRKEN okur. Kanıtlanmış ölü uçlar: attribute güncelleme · düğüm tazeleme ·
-     düğümü silip yeniden ekleme · zorunlu reflow · 1px kaydırma dürtüsü. HEPSİ ÇUVALLADI —
-     çünkü WebKit'in kuralı "META VARSA ONU KULLAN". Meta orada durdukça Safari sayfanın
-     arka planına HİÇ bakmadı; örnekleme yolu hiç devreye girmedi.
-     ÇÖZÜM: Safari'de meta'yı KALDIR → Safari, fallback olarak sayfanın KENDİ arka plan
-     rengini örneklemek zorunda kalır; o arka plan bizim CSS'imiz ve temayla anında değişir.
-     RİSK PROFİLİ: kötüleştiremez. Örnekleme de yüklemede donuyorsa sonuç bugünküyle AYNI
-     (renk yine doğru, sadece geç) — kayıp yok.
-     PWA (standalone) ve masaüstü bu bloğa GİRMEZ: orada meta çalışıyor, dokunulmuyor. */
-  if(_isIOSLib() && !_isStandaloneLib()){
-    var old=document.getElementById('_themec');
-    if(old && old.parentNode) old.parentNode.removeChild(old);
-    return;
-  }
-  /* ====== PWA + masaüstü: meta yolu (çalışıyor — DOKUNMA) ====== */
-  var m=document.getElementById('_themec'); if(!m) return;
-  m.setAttribute('content', _topColor());
-  try{ var n=m.cloneNode(true); m.parentNode.replaceChild(n,m); }catch(e){}
+function _safariThemeNav(){
+  if(!(_isIOSLib() && !_isStandaloneLib())) return;   /* yalnız iOS Safari */
+  try{
+    var v=document.querySelector('.lib-view.active');
+    localStorage.setItem('__lib_restore', JSON.stringify({
+      lib: v ? v.getAttribute('data-lib') : '',
+      y: window.scrollY || document.documentElement.scrollTop || 0
+    }));
+  }catch(e){}
+  try{ location.replace(location.pathname + '?t=' + Date.now()); }
+  catch(e){ try{ location.reload(); }catch(_e){} }
 }
 
 /* Hub <-> kütüphane gecisi — ayni sekme, URL degismez (view-switch). */
@@ -9322,10 +9343,23 @@ function initApp() {
   // window.name'de hangi kütüphaneden gelindigi var (d.lib) -> dogrudan o kütüphaneye don (hub'a dusme).
   var _ret=null;
   try{ var d=JSON.parse(window.name||'{}'); if(d&&d.lib&&LIBS[d.lib]&&d.id)_ret=d.lib; }catch(e){}
+  /* __SAFARI_NAV__ geri dönüşü: tema değişiminde ?t= ile GERÇEK navigasyon yapıldı (yalnız iOS
+     Safari) → kullanıcıyı bıraktığı yere koy. Kapıyı da atlar: bu ancak kapı zaten geçilmişse olur. */
+  var _rs=null;
+  try{ var _raw=localStorage.getItem('__lib_restore');
+       if(_raw){ localStorage.removeItem('__lib_restore'); _rs=JSON.parse(_raw); } }catch(e){}
   // ACILIS KAPISI: kod dogrulanmadan hub yok. iOS geri-donus (_ret) zaten icerideydi -> atla. Worker ayarli degilse atla.
   var _gateOk=false; try{_gateOk=localStorage.getItem('lib_welcome_ok')==='1';}catch(e){}
   var _gateOn=(typeof LIB_AUTH_URL==='string' && LIB_AUTH_URL.indexOf('HESABIN')<0 && /^https?:/.test(LIB_AUTH_URL));
-  if(!_ret && _gateOn && !_gateOk){ showCodeGate(); return; }
+  if(!_ret && !_rs && _gateOn && !_gateOk){ showCodeGate(); return; }
+  if(_rs){
+    try{ history.replaceState(null,'',location.pathname); }catch(e){}   /* ?t= adres çubuğunda kalmasın */
+    if(_rs.lib && LIBS[_rs.lib]){
+      enterLib(_rs.lib);
+      if(_rs.y>0) setTimeout(function(){ try{ window.scrollTo(0,_rs.y); }catch(e){} },80);
+    } else showHub();
+    return;
+  }
   if(_ret) enterLib(_ret); else showHub();   // loadState/loadMediaState enterLib'de calisir
 }
 /* Arama motoru — kutu-başına bağlanır; sonuçlar curView-scoped (6 kütüphane de aynı kodu paylaşır).
@@ -9585,7 +9619,11 @@ document.addEventListener('DOMContentLoaded',function(){
     var segs=document.querySelectorAll('#themebar .tm-seg');
     for(var i=0;i<segs.length;i++){ segs[i].classList.toggle('on', segs[i].getAttribute('data-mode')===mode); }
   }
-  function setMode(m){ mode=m; try{ localStorage.setItem('__lib_mode', m); }catch(e){} applyMode(); if(mode==='original') stop(); else start(); }
+  function setMode(m){ mode=m; try{ localStorage.setItem('__lib_mode', m); }catch(e){} applyMode(); if(mode==='original') stop(); else start();
+    /* __SAFARI_NAV__: iOS Safari'de çerçeve rengi ancak GERÇEK bir navigasyonla yenilenir
+       (reload bile yetmiyor). Yalnız orada tetiklenir; PWA/masaüstü no-op. */
+    if(typeof _safariThemeNav==='function') _safariThemeNav();
+  }
   applyMode();
 
   var segs=document.querySelectorAll('#themebar .tm-seg');
