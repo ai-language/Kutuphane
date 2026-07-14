@@ -158,12 +158,27 @@
   .lib-view.active{ display:block; }
 
   #hub{ display:none; position:fixed; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:max(46px,calc(env(safe-area-inset-top,0px) + 20px)) 20px max(46px,calc(env(safe-area-inset-bottom,0px) + 20px)); background:linear-gradient(160deg,#0f1419,#1b2430); }
-  /* __SAFEPAINT__ (2): iOS'ta sabit konumlu öğe ALT güvenli alana kadar uzanmıyor → hub'ın altında
-     sayfanın çıplak arka planı (tema rengi) bir şerit hâlinde görünüyordu (üst çentiği örtüyordu, altı değil).
-     Kutuyu tam o kadar AŞAĞI taşı ve dolguyu aynı miktarda ARTIR → boyama şeridi kaplar, içerik KIPIRDAMAZ.
-     Masaüstü/Android: env(...) = 0 → bottom:0 ve dolgu aynen, SIFIR değişiklik. */
-  #hub{ bottom: calc(0px - env(safe-area-inset-bottom, 0px));
-        padding-bottom: calc(max(46px, env(safe-area-inset-bottom,0px) + 20px) + env(safe-area-inset-bottom,0px)); }
+  /* ============================================================
+     __HUBCANVAS__ — hub'ın altındaki çıplak şerit (PWA + Safari)
+     TEŞHİS (cihazda kanıtlandı): iOS'ta SABİT konumlu öğeler (#hub, #starfield,
+     body::before) ÜST güvenli alana ulaşıyor ama ALTA ULAŞMIYOR. Alt şeridi boyayan
+     TEK şey KÖK ARKA PLAN (canvas):
+        Sade   → şerit BEYAZ  = #f0f4f8 (body arka planı, köke propagate olur)
+        Gündüz → şerit AÇIK MAVİ = #dde9f6 (html arka planı)
+     Birebir kök renkleri → kanıt.
+     ⛔ Hub'ı aşağı uzatmak (bottom: -env) DENENDİ, İŞE YARAMADI: sabit öğe oraya
+        zaten erişemiyor, ne kadar uzatılırsa uzatılsın erişemez.
+     ✅ ÇÖZÜM: hub açıkken KÖKÜ koyult. Hub'ın KENDİ görünümü DEĞİŞMEZ, çünkü kök
+        yalnızca sabit öğelerin ULAŞAMADIĞI yerde (yani tam o şeritte) görünür:
+          · Sade   → hub arka planı zaten OPAK gradyan, kökü hiç görmez
+          · Gündüz → hub, body::before'un OPAK açık gradyanıyla harmanlanır, kökü görmez
+          · Gece   → kök zaten koyu; aşağıda AYNEN geri veriliyor (hiç değişmesin)
+     BONUS: Safari'nin ALT çerçevesi sayfanın alt kenarındaki gerçek pikseli örneklüyor
+     (beyaz kalmasının sebebi buydu) → kök koyulunca o çerçeve de hub tonuna gelir.
+     ============================================================ */
+  html.hub-on{ background:#1b2430; }                        /* Sade: hub gradyanının alt ucu */
+  html[data-theme="light"].hub-on{ background:#3b445d; }    /* Gündüz: hub'ın açık zemin üstündeki efektif alt tonu */
+  html[data-theme="dark"].hub-on{ background:#0b1020; }     /* Gece: DEĞİŞMESİN (kök bugünküyle birebir aynı) */
   #hub.active{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%; }
   /* Hub alt araç butonları (Şifre / Etiketle) + admin görünürlük + indirileni sil */
   .hub-tools{ margin-top:24px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
@@ -8020,6 +8035,7 @@ function enterLib(libId){
   document.documentElement.style.setProperty('--lib-c2', cur().c2);
   var _zt=document.getElementById('_zoom_tab'); if(_zt)_zt.style.background=cur().c;  // zoom kolu kütüphane rengi
   var hub=document.getElementById('hub'); if(hub)hub.classList.remove('active');
+  document.documentElement.classList.remove('hub-on');   /* __HUBCANVAS__: kök tema rengine dönsün */
   document.querySelectorAll('.lib-view').forEach(function(v){ v.classList.remove('active'); });
   var v=curView(); if(v)v.classList.add('active');
   _syncTopColor();   /* .active YERLEŞTİKTEN SONRA — _topColor aktif view'a bakar */
@@ -8033,6 +8049,7 @@ function enterLib(libId){
 function showHub(){
   document.querySelectorAll('.lib-view').forEach(function(v){ v.classList.remove('active'); });
   var hub=document.getElementById('hub'); if(hub)hub.classList.add('active');
+  document.documentElement.classList.add('hub-on');   /* __HUBCANVAS__: alt güvenli-alan şeridi hub tonuna boyansın */
   _syncTopColor();   /* aktif lib kalmadı → hub rengi */
   var zw=document.getElementById('_zoom_wrap'); if(zw)zw.style.display='none';
   try{ window.scrollTo(0,0); }catch(e){}
@@ -9252,6 +9269,7 @@ function resetAll() {
    İlk girişte Worker'a mode=welcome ile sorar; doğruysa bayrak saklar, sonrası OFFLINE direkt hub.
    NOT: Bu yalnız açılış kapısıdır. İçerik indirme AYRI kişiye-özel kod ister (🔑 modal → mode=check). */
 function showCodeGate(){
+  document.documentElement.classList.add('hub-on');   /* __HUBCANVAS__: kapı da hub'ın koyu gradyanı → alt şerit beyaz kalmasın */
   var ov=document.createElement('div'); ov.id='_codegate';
   ov.style.cssText='position:fixed;inset:0;z-index:200000;background:linear-gradient(160deg,#0f1419,#1b2430);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:max(40px,env(safe-area-inset-top,0px)) 24px max(40px,env(safe-area-inset-bottom,0px));text-align:center';
   ov.innerHTML='<div style="font-size:2.2rem;margin-bottom:12px">📚</div>'
