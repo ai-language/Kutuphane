@@ -8049,11 +8049,20 @@ function _syncTopColor(){
      1) meta content güncelleme  2) düğüm cloneNode/replaceChild  3) düğümü silip yeniden ekleme
      4) meta'yı tamamen kaldırma (Safari arka planı örnekledi ama O DA yüklemede donuyor)
      5) zorunlu reflow           6) 1px kaydırma dürtüsü
-   location.reload() DE YETMİYOR — kullanıcı denedi: hub yeniden açılıyor ama çerçeve donuk
-   kalıyor (Safari aynı URL'ye yeniden girişte çerçeveyi geri yüklüyor).
-   ÇALIŞAN TEK ŞEY: FARKLI BİR URL'ye GERÇEK NAVİGASYON — podcast'e girip çıkmanın çerçeveyi
-   düzeltmesinin sebebi tam olarak bu. O yüzden tema değişiminde ?t=<zaman> ile navigasyon
-   yapıyoruz; hangi kütüphanede olduğu + kaydırma konumu saklanıp aynen geri yükleniyor.
+   ÇALIŞAN TEK ŞEY: podcast'e girip çıkmak. PODCAST NASIL GİDİYOR (kodda doğrulandı):
+     · SW yolu  (_swOpen)  : location.href = './?m=<id>&lib=<lib>'   → aynı origin, AYNI DOSYA, farklı query
+     · Blob yolu (openMedia): location.href = blob:...               → farklı şema
+   → SW mi BLOB mu ALAKASIZ. İkisinin de ORTAK NOKTASI: `location.href =` yani ASSIGN.
+   MEKANİZMA (tüm gözlemlere oturan tek açıklama):
+     Safari çerçeve rengini AYNI GEÇMİŞ KAYDINA yapılan gidişte KORUR, YENİ GEÇMİŞ KAYDINA
+     yapılan gidişte YENİDEN HESAPLAR.
+       Safari retry / location.reload() → aynı kayıt → korunur → ❌ (kullanıcı denedi)
+       location.replace(...)            → aynı kayıt → korunur → ❌ (kullanıcı denedi)
+       location.href = url  (ASSIGN)    → YENİ kayıt → yeniden hesaplanır → ✅ (podcast)
+   Kullanıcı SW modunda: çalışan navigasyon './?m=..' = aynı origin + aynı dosya + farklı query.
+   Benim ilk denemem './?t=..' de öyleydi — TEK FARK replace kullanmamdı. Düzeltildi: ASSIGN.
+   __EARLY_TC__ ile birlikte iki koşul da sağlanır: (1) yeni geçmiş kaydı → yeniden hesapla,
+   (2) yeni sayfanın PARSE anında renk zaten doğru → hesaplanan değer doğru olanı bulur.
    PWA ve masaüstü bu fonksiyona HİÇ girmez (orada çerçeve zaten anında değişiyor). */
 function _isStandaloneLib(){
   try{
@@ -8063,6 +8072,10 @@ function _isStandaloneLib(){
 }
 function _safariThemeNav(){
   if(!(_isIOSLib() && !_isStandaloneLib())) return;   /* yalnız iOS Safari */
+  /* ÇEVRİMDIŞI KORUMASI: '?t=' YENİ bir URL → önbellekte karşılığı yok, SW de onu yakalamıyor
+     (yalnız '?m=' navigasyonlarını yakalar) → ağ yoksa KIRIK SAYFA çıkardı. Çevrimdışıysa
+     navigasyon yapma: tema yine anında değişir, sadece Safari çerçevesi geç kalır. */
+  try{ if(navigator.onLine === false) return; }catch(e){}
   try{
     var v=document.querySelector('.lib-view.active');
     localStorage.setItem('__lib_restore', JSON.stringify({
@@ -8070,7 +8083,9 @@ function _safariThemeNav(){
       y: window.scrollY || document.documentElement.scrollTop || 0
     }));
   }catch(e){}
-  try{ location.replace(location.pathname + '?t=' + Date.now()); }
+  /* ⚠️ ASSIGN — replace/reload DEĞİL. openMedia ile BİREBİR aynı biçim.
+     replace ve reload aynı geçmiş kaydını kullanır → Safari çerçeveyi korur → çalışmaz. */
+  try{ location.href = location.pathname + '?t=' + Date.now(); }
   catch(e){ try{ location.reload(); }catch(_e){} }
 }
 
