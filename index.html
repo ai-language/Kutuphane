@@ -7928,12 +7928,49 @@ function _topColor(){
   if(mode==='night') return _LIB_NIGHT_TOP[id] || '#0b1020';
   return (LIBS[id] && LIBS[id].c) || '#0f1419';   /* Sade + Gündüz: başlık hâlâ kütüphane gradyanı */
 }
+/* iOS tespiti — YETENEK tabanlı (PWA/SW bağlamında iPhone kendine "Macintosh" der; salt UA testi kaçırır). */
+function _isIOSLib(){
+  var ua=navigator.userAgent||'';
+  return /iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && (navigator.maxTouchPoints||0) > 1);
+}
 function _syncTopColor(){
   var m=document.getElementById('_themec'); if(!m) return;
-  m.setAttribute('content', _topColor());
-  /* Safari + masaüstü PWA bazı sürümlerde salt attribute değişimini ıskalıyor
-     ("çıkıp girmek gerekiyor") → düğümü tazeleyerek yeniden okumaya zorla. id klonda korunur. */
+  var c=_topColor();
+  /* --- MASAÜSTÜ YOLU (çalışıyor, DOKUNMA) --- */
+  m.setAttribute('content', c);
   try{ var n=m.cloneNode(true); m.parentNode.replaceChild(n,m); }catch(e){}
+
+  /* --- iOS SAFARI EKİ --------------------------------------------------------
+     WebKit üst şeridi salt `content` attribute değişiminde YENİDEN BOYAMIYOR:
+     renk yalnız sayfa YÜKLENİRKEN okunuyor → kullanıcı "podcast'e girip çıkınca
+     düzeliyor" dedi (girip çıkmak = tam sayfa yeniden yüklemesi). Üç kademeli
+     dürtme; her biri ayrı bir WebKit yolunu tetikler, hepsi görsel olarak sessiz.
+     Masaüstü bu bloğa HİÇ girmez. */
+  if(!_isIOSLib()) return;
+  try{
+    /* (a) düğümü head'in SONUNA TAZE olarak koy — yerinde değiştirmek yetmiyor;
+           WebKit meta listesini yeniden taramaya zorlanır. */
+    var old=document.getElementById('_themec');
+    if(old && old.parentNode) old.parentNode.removeChild(old);
+    var fresh=document.createElement('meta');
+    fresh.setAttribute('name','theme-color');
+    fresh.id='_themec';
+    fresh.setAttribute('content', c);
+    document.head.appendChild(fresh);
+
+    /* (b) stil/layout hesabını zorla → bekleyen theme-color bildirimi flush olsun. */
+    void document.documentElement.offsetHeight;
+
+    /* (c) 1px kaydırma dürtüsü: Safari üst şeridi kaydırma sırasında yeniden örnekler.
+           Konum bir sonraki karede AYNEN geri konur (göze görünmez). Sayfa kaydırılamıyorsa
+           (hub: #hub kendi içinde kayar, pencere kaymaz) sessizce atlanır — zarar yok. */
+    var se=document.scrollingElement||document.documentElement;
+    if(se && se.scrollHeight > se.clientHeight + 1){
+      var y=se.scrollTop;
+      se.scrollTop = y + (y > 0 ? -1 : 1);
+      requestAnimationFrame(function(){ se.scrollTop = y; });
+    }
+  }catch(e){}
 }
 
 /* Hub <-> kütüphane gecisi — ayni sekme, URL degismez (view-switch). */
