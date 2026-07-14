@@ -291,6 +291,24 @@
      ============================================================ */
   #starfield{ position:fixed; inset:0; z-index:0; pointer-events:none; display:block; }
   html.no-bg #starfield{ display:none; }
+
+  /* ============================================================
+     __SFBG__ — Safari ALT ÇERÇEVESİ (kanıtlanmış kök neden)
+     Safari (viewport-fit=cover ile barlar şeffaflaşır) üst/alt bar rengini theme-color'dan
+     DEĞİL, o bölgedeki html/body/SABİT elementlerin CSS ARKA PLANINDAN örnekliyor.
+     Kanıt: meta'yı tamamen kaldırdık → HİÇBİR ŞEY DEĞİŞMEDİ. Demek ki hiç okumuyormuş.
+     #starfield = position:fixed; inset:0 → alt bölgeyi kaplıyor AMA CSS arka planı YOK
+     (şeffaf canvas) → Safari örnekleyecek renk bulamıyor, alt bar takılı kalıyor.
+     KUSURSUZ KORELASYON (kullanıcı raporu):
+        Sade   → `html.no-bg #starfield{display:none}` = starfield YOK → alt bar ✅ ÇALIŞIYOR
+        Gündüz → starfield VAR (+ opak gradyan body::before) → ⚠️ kısmen
+        Gece   → starfield VAR                            → ❌ çalışmıyor
+     ÇÖZÜM: starfield'a temanın arka planını CSS arka planı olarak ver. Canvas zaten TAM O
+     RENGİN üstünde duruyordu → GÖRSEL OLARAK SIFIR DEĞİŞİKLİK; yıldızlar/kar üstüne çizilmeye
+     devam eder. Sade'ye dokunmuyoruz (starfield gizli, zaten çalışıyor).
+     ⚠️ Gündüz'de gradyan body::before ile BİREBİR AYNI olmalı (yoksa dikiş görünür). */
+  html[data-theme="dark"] #starfield{ background:#0b1020; }   /* Gece — canvas'ın zaten üstünde durduğu renk */
+  html[data-theme="light"] #starfield{ background:linear-gradient(180deg,#c9dcf2 0%,#dde9f6 46%,#eef4fb 100%); }  /* Gündüz — body::before ile BİREBİR aynı */
   /* içerik yıldızların ÜSTÜNDE kalsın */
   .lib-view header, .tab-nav, .content, .lib-empty{ position:relative; z-index:1; }
   #hub{ z-index:1; }
