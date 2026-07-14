@@ -10,7 +10,11 @@
      İçerik çentiğin altına kaymasın diye body'ye env(safe-area-inset-*) dolgusu verildi.
      Masaüstünde env(...) = 0 → SIFIR değişiklik. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>NHG-Richtlijnen - Voortgang Tracker</title>
+<!-- Masaüstü PWA penceresinin başlığı = manifest adı + document.title idi
+     ("Kütüphane Arşivi - NHG-Richtlijnen - Voortgang Tracker"). Başlık manifest adıyla
+     aynı olunca Chrome tek sefer gösterir. Tarayıcı sekmesi için de artık doğru ad
+     (uygulama 6 kütüphaneli bir arşiv, salt NHG değil). -->
+<title>Kütüphane Arşivi</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" id="_themec" content="#0f1419">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -154,6 +158,12 @@
   .lib-view.active{ display:block; }
 
   #hub{ display:none; position:fixed; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:max(46px,calc(env(safe-area-inset-top,0px) + 20px)) 20px max(46px,calc(env(safe-area-inset-bottom,0px) + 20px)); background:linear-gradient(160deg,#0f1419,#1b2430); }
+  /* __SAFEPAINT__ (2): iOS'ta sabit konumlu öğe ALT güvenli alana kadar uzanmıyor → hub'ın altında
+     sayfanın çıplak arka planı (tema rengi) bir şerit hâlinde görünüyordu (üst çentiği örtüyordu, altı değil).
+     Kutuyu tam o kadar AŞAĞI taşı ve dolguyu aynı miktarda ARTIR → boyama şeridi kaplar, içerik KIPIRDAMAZ.
+     Masaüstü/Android: env(...) = 0 → bottom:0 ve dolgu aynen, SIFIR değişiklik. */
+  #hub{ bottom: calc(0px - env(safe-area-inset-bottom, 0px));
+        padding-bottom: calc(max(46px, env(safe-area-inset-bottom,0px) + 20px) + env(safe-area-inset-bottom,0px)); }
   #hub.active{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%; }
   /* Hub alt araç butonları (Şifre / Etiketle) + admin görünürlük + indirileni sil */
   .hub-tools{ margin-top:24px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
@@ -7941,8 +7951,7 @@ function _libRGBA(hex,a){
      applyMode : hub renkleri — KÜTÜPHANE İÇİNDEYKEN BİLE (başlıkla uyuşmuyordu)
    Kullanıcının gördüğü "mod değişince üst panel uymuyor, girip çıkınca uyuyor" tam olarak buydu:
    meta güncelleniyordu ama YANLIŞ renge; enterLib sonradan doğrusunu geri yazıyordu.
-   Artık tek fonksiyon: (görünüm modu × aktif kütüphane) → gerçekte en üstte duran rengi verir. */
-const _LIB_NIGHT_TOP = { nhg:'#0f2a1d', acute:'#2a1216', acute_en:'#111f3a', bi:'#15181f', bi_en:'#111f3a', en:'#111f3a' }; /* CSS'teki gece başlık override'larının ilk durağı */
+   Artık tek fonksiyon: (görünüm modu × aktif görünüm) → çerçevenin alması gereken rengi verir. */
 function _libMode(){
   if(typeof window.__libModeNow==='string') return window.__libModeNow;   /* oturum gerçeği (gizli mod: localStorage yazılamaz) */
   try{ var m=localStorage.getItem('__lib_mode'); if(m==='night'||m==='day') return m; }catch(e){}
@@ -7953,22 +7962,51 @@ function _isIOSLib(){
   var ua=navigator.userAgent||'';
   return /iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && (navigator.maxTouchPoints||0) > 1);
 }
+/* TEMA rengi = sayfanın kendi arka planı (Sade: body #f0f4f8 · Gece: #0b1020 · Gündüz: açık gradyanın tepesi). */
+function _themeBg(mode){
+  return mode==='night' ? '#0b1020' : mode==='day' ? '#dde9f6' : '#f0f4f8';
+}
 function _topColor(){
   var mode=_libMode();
-  /* iPhone: kullanıcı üst şeridin TEMANIN rengini almasını istiyor (kütüphane paneli rengini DEĞİL).
-     Safari'nin alt adres çubuğu da bu meta'yı kullanır → şeritle tutarlı kalsın.
-     (Asıl üst şerit artık __SAFEPAINT__ ile bizim CSS'imizle boyanıyor; bkz. viewport-fit=cover.) */
-  if(_isIOSLib()){
-    return mode==='night' ? '#0b1020' : mode==='day' ? '#dde9f6' : '#f0f4f8';
-  }
-  /* Masaüstü PWA: çerçeve = üstteki renkli panelin rengi (kullanıcı bunu onayladı — DOKUNMA). */
   var v=document.querySelector('.lib-view.active');
-  if(!v) return mode==='night' ? '#0b1020' : mode==='day' ? '#313a4a' : '#0f1419';
-  var id=v.getAttribute('data-lib');
-  if(mode==='night') return _LIB_NIGHT_TOP[id] || '#0b1020';
-  return (LIBS[id] && LIBS[id].c) || '#0f1419';
+
+  /* KÜTÜPHANE SAYFASI — iPhone VE masaüstü PWA: çerçeve TEMAYA göre boyanır,
+     üstteki renkli panele göre DEĞİL (kullanıcı kararı 2026-07-14). */
+  if(v) return _themeBg(mode);
+
+  /* HUB — bugünkü görünüm AYNEN korunur (kullanıcı: "hubdaki görünüm değişmesin").
+     iPhone'da hub şeridini zaten CSS boyuyor (viewport-fit=cover); meta orada yalnız Safari'nin
+     alt adres çubuğunu etkiler → onu temaya bağlı tut, şeritle tutarlı kalsın. */
+  if(_isIOSLib()) return _themeBg(mode);
+  return mode==='night' ? '#0b1020' : mode==='day' ? '#313a4a' : '#0f1419';
+}
+/* Ana ekrandan açılmış PWA mı (iOS standalone / display-mode:standalone)? */
+function _isStandaloneLib(){
+  try{
+    if(window.navigator.standalone===true) return true;
+    return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  }catch(e){ return false; }
 }
 function _syncTopColor(){
+  /* ====== iOS SAFARI (PWA DEĞİL) — __SAFARI_SAMPLE__ ======================
+     Safari'de üst status bar + alt adres çubuğu TARAYICININ çerçevesidir; oraya biz
+     boyayamayız (viewport-fit=cover orayı bize vermiyor — ekran görüntüsüyle doğrulandı).
+     O çerçeveyi YALNIZ theme-color meta'sı belirler ve iOS Safari onu SADECE SAYFA
+     YÜKLENİRKEN okur. Kanıtlanmış ölü uçlar: attribute güncelleme · düğüm tazeleme ·
+     düğümü silip yeniden ekleme · zorunlu reflow · 1px kaydırma dürtüsü. HEPSİ ÇUVALLADI —
+     çünkü WebKit'in kuralı "META VARSA ONU KULLAN". Meta orada durdukça Safari sayfanın
+     arka planına HİÇ bakmadı; örnekleme yolu hiç devreye girmedi.
+     ÇÖZÜM: Safari'de meta'yı KALDIR → Safari, fallback olarak sayfanın KENDİ arka plan
+     rengini örneklemek zorunda kalır; o arka plan bizim CSS'imiz ve temayla anında değişir.
+     RİSK PROFİLİ: kötüleştiremez. Örnekleme de yüklemede donuyorsa sonuç bugünküyle AYNI
+     (renk yine doğru, sadece geç) — kayıp yok.
+     PWA (standalone) ve masaüstü bu bloğa GİRMEZ: orada meta çalışıyor, dokunulmuyor. */
+  if(_isIOSLib() && !_isStandaloneLib()){
+    var old=document.getElementById('_themec');
+    if(old && old.parentNode) old.parentNode.removeChild(old);
+    return;
+  }
+  /* ====== PWA + masaüstü: meta yolu (çalışıyor — DOKUNMA) ====== */
   var m=document.getElementById('_themec'); if(!m) return;
   m.setAttribute('content', _topColor());
   try{ var n=m.cloneNode(true); m.parentNode.replaceChild(n,m); }catch(e){}
