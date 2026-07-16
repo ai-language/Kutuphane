@@ -34,6 +34,24 @@
     var v=''; try{ v=localStorage.getItem('__lib_lastview')||''; }catch(e){}   /* '' = hub */
     var ua=navigator.userAgent||'';
     var ios=/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && (navigator.maxTouchPoints||0)>1);
+
+    /* ===== __EARLY_THEME__ (2026-07-16, Fable) — TEMA İLK BOYAMADA UYGULANIR =========
+       KÖK NEDEN (Safari çerçeve kaosunun tek açıklaması, kullanıcının kendi gözlemiyle
+       kanıtlı: "retry uzun sürüp açılınca siyahta KALIYOR = fonksiyon çalışmış oluyor"):
+       Safari üst/alt çubuğu SAYFANIN İLK BOYAMASINI örnekleyip DONDURUYOR. data-theme ise
+       şimdiye dek BODY SONUNDAKİ applyMode'da atanıyordu → her yüklemede ilk boyama DAİMA
+       Sade/beyaz → çubuklara beyaz pişiyordu; tema ancak yavaş yüklemede yetişiyordu
+       ("bazen çalışıyor"un tamamı bu YARIŞ). FIX: data-theme/no-bg (+hub'daysak hub-on)
+       daha <head>'de, İLK BOYAMADAN ÖNCE atanır → örneklenen renk HEP doğru; retry de
+       artık bozamaz (her yükleme doğru doğar). BONUS: PWA/masaüstündeki açılış tema-flaşı
+       (önce beyaz yanıp sonra kararma) da ortadan kalkar. applyMode aynı değerleri sonra
+       idempotent tekrar atar → motor davranışı DEĞİŞMEZ. */
+    var _root=document.documentElement;
+    if(m==='night'){ _root.setAttribute('data-theme','dark'); }
+    else if(m==='day'){ _root.setAttribute('data-theme','light'); }
+    else { _root.classList.add('no-bg'); }
+    if(!v){ _root.classList.add('hub-on'); }   /* hub'a açılıyoruz → alt şerit/çubuk hub tonunu örneklesin (initApp showHub yine ekler, enterLib kaldırır) */
+
     var el=document.getElementById('_themec');
     if(!el) return;
 
@@ -519,9 +537,13 @@
   /* #hub sabit (inset:0) → body dolgusunu görmez; kendi safe-area dolgusu ZATEN vardı.
      Çentik şeridini hub'ın kendi koyu gradyanı boyar (hub her modda koyu → dikişsiz). */
 
-  /* NHG site katmanı sabit + inset:0 → cover'da çentiğin ALTINA girerdi.
-     Mutlak konumlu çocuklar dolgu KUTUSUNA göre yerleşir (padding onları itmez) → doğrudan offset. */
-  #nhg-overlay iframe{ top: env(safe-area-inset-top, 0px); height:auto; }
+  /* ⛔ __SAFEPAINT__ iframe REGRESYONU DÜZELTİLDİ (2026-07-16): buradaki eski
+     `#nhg-overlay iframe{ top:env(...); height:auto; }` kuralı masaüstünde medya katmanını
+     ~150px'e DÜŞÜRÜYORDU ("yarım görünüyor", ekran görüntüsüyle doğrulandı). Sebep: iframe
+     REPLACED elementtir — mutlak konumda height:auto, top/bottom'dan HESAPLANMAZ, intrinsic
+     yüksekliğe (≈150px) düşer. Bu katman yolu zaten yalnız masaüstünde kullanılır (iOS her
+     zaman tam-sayfa açar) → çentik ayarına hiç gerek yoktu. Orijinal davranış (height:100%)
+     ana kuralda duruyor; override tamamen kaldırıldı. Bar offset'i masaüstünde 8px = eskisiyle aynı. */
   #nhg-overlay-bar{ top: calc(8px + env(safe-area-inset-top, 0px)); }
   /* "Yeni sürüm mevcut" bandı top:0 ile ekleniyor → çentiğin altında kalmasın */
   #_lib_upd_b{ padding-top: calc(10px + env(safe-area-inset-top, 0px)) !important; }
