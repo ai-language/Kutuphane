@@ -74,9 +74,20 @@
          tasarım katmanı köke DÜZ RENK veriyor → WebKit kök rengini bir kez örnekleyip donduruyor.
          FIX: yalnız iOS Safari'de köke .sf-live bas → CSS kök arka planlarını ŞEFFAF yapar
          (renkler zaten body/body::before/hub katmanlarında) → çubuklar HER modda Sade gibi cam
-         olur, tema değişimini ANINDA yansıtır, hub kendi rengini kendi alır → retry GEREKSİZ. */
+         olur, tema değişimini ANINDA yansıtır, hub kendi rengini kendi alır → retry GEREKSİZ.
+         CİHAZ SONUCU: KISMİ — WebKit cam modu tam-ekran SABİT katman (starfield/gradyan)
+         görünce kilitleniyor; yalnız Sade (starfield'sız) tam cam. Retry mimarisi kaldı.
+         ===== __DAY_META__ v2 (2026-07-16 kullanıcı isteği) ======================
+         Gündüz'de örnekleme KÜTÜPHANEDE de hub'ın koyu tonunu taşıyabiliyordu; kullanıcı:
+         "YALNIZ kütüphaneye girişte ve kütüphane içinde canvas'ın AÇIK TONU devralsın;
+         HUB huba uygun kalmaya DEVAM ETMELİ." WebKit kuralı: META VARSA ÖRNEKLEME YOK →
+         Gündüz + KÜTÜPHANE görünümünde meta KALIR ve #dde9f6 yazılır; HUB'da (v='') meta
+         KALDIRILIR → örnekleme hub'ın kendi tonunu verir. Sade cam kalır, Gece örnekleme.
+         Her hub↔kütüphane geçişi VIEW_NAV ile taze yükleme olduğundan bu karar her
+         yüklemede parse anında, doğru görünüm bilgisiyle (lastview) yeniden verilir. */
       _root.classList.add('sf-live');
-      el.parentNode.removeChild(el); return;
+      if(m==='day' && v){ el.setAttribute('content','#dde9f6'); return; }   /* v=libId → kütüphanede açık ton */
+      el.parentNode.removeChild(el); return;                                 /* hub + Sade + Gece → örnekleme */
     }
 
     var THEME   ={original:'#f0f4f8', night:'#0b1020', day:'#dde9f6'};   /* kütüphane sayfası */
@@ -8144,7 +8155,11 @@ function _zoomTabPaint(){
 var _viewReady = false;
 function _syncTopColor(){
   if(!_viewReady) return;   /* görünüm henüz belli değil → EARLY_TC'nin doğru değerini EZME */
-  var m=document.getElementById('_themec'); if(!m) return;   /* iOS Safari'de meta yok (FIX #2) → no-op */
+  /* __DAY_META__: iOS Safari'de meta'nın TEK SAHİBİ parse-anı betiği (EARLY_TC) — Gündüz'de
+     meta #dde9f6 ile DURUYOR; burası hub açılışında üstüne hub tonu yazmasın. Safari'de canlı
+     meta yazımının işe yaramadığı zaten kanıtlı → bu fonksiyon orada tamamen devre dışı. */
+  if(_isIOSLib() && !_isStandaloneLib()) return;
+  var m=document.getElementById('_themec'); if(!m) return;
   m.setAttribute('content', _topColor());
   try{ var n=m.cloneNode(true); m.parentNode.replaceChild(n,m); }catch(e){}
 }
