@@ -67,7 +67,17 @@
     var standalone=false;
     try{ standalone = (navigator.standalone===true) ||
          !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); }catch(e){}
-    if(ios && !standalone){ el.parentNode.removeChild(el); return; }
+    if(ios && !standalone){
+      /* ===== __SF_LIVE__ (2026-07-16, kullanıcı fikri) — CAM ÇUBUK MODU ==============
+         GÖZLEM: Sade'de Safari çubukları TAM ŞEFFAF ve altını CANLI gösteriyor; Gece/Gündüz'de
+         ise renk pişip DONUYOR. TEK DEĞİŞKEN: Sade'de <html>'in arka planı YOK; Gece/Gündüz'de
+         tasarım katmanı köke DÜZ RENK veriyor → WebKit kök rengini bir kez örnekleyip donduruyor.
+         FIX: yalnız iOS Safari'de köke .sf-live bas → CSS kök arka planlarını ŞEFFAF yapar
+         (renkler zaten body/body::before/hub katmanlarında) → çubuklar HER modda Sade gibi cam
+         olur, tema değişimini ANINDA yansıtır, hub kendi rengini kendi alır → retry GEREKSİZ. */
+      _root.classList.add('sf-live');
+      el.parentNode.removeChild(el); return;
+    }
 
     var THEME   ={original:'#f0f4f8', night:'#0b1020', day:'#dde9f6'};   /* kütüphane sayfası */
     var HUB_IOS ={original:'#1b2430', night:'#121b35', day:'#3b445d'};   /* iOS PWA hub (CSS ile birebir) */
@@ -250,6 +260,22 @@
   /* Gece — hub, rgba(20,29,58,.82) ile kökün üstünde harmanlanır → efektif alt uç ≈ #121b35 */
   html[data-theme="dark"].hub-on{ background:#121b35; }
   html[data-theme="dark"].hub-on body{ background:#121b35; }
+
+  /* ============================================================
+     __SF_LIVE__ (2026-07-16) — iOS SAFARİ CAM ÇUBUK MODU (kullanıcı fikri)
+     Sade'de çubuklar cam/canlıydı çünkü <html>'in arka planı YOKTU; Gece/Gündüz'de kökteki
+     düz renk WebKit tarafından bir kez pişirilip DONUYORDU. .sf-live yalnız iOS Safari'de
+     köke basılır (EARLY_TC, parse anında) → kök HER modda şeffaf → çubuklar hep cam,
+     temayı/hub'ı CANLI yansıtır, retry gereksiz. Renk kaybı YOK: Gece'yi body (#0b1020 /
+     hub #121b35), Gündüz'ü body::before gradyanı, Sade'yi body (#f0f4f8 / hub #1b2430)
+     boyamaya devam eder — kök zaten yalnız çubuk-pişirme ve rubber-band'de görünüyordu;
+     rubber-band'i de body propagasyonu / fixed gradyan örter.
+     PWA + masaüstü: .sf-live HİÇ basılmaz → sıfır değişiklik. */
+  html.sf-live[data-theme="dark"],
+  html.sf-live[data-theme="light"],
+  html.sf-live.hub-on,
+  html.sf-live[data-theme="dark"].hub-on,
+  html.sf-live[data-theme="light"].hub-on{ background:transparent; }
   #hub.active{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%; }
   /* Hub alt araç butonları (Şifre / Etiketle) + admin görünürlük + indirileni sil */
   .hub-tools{ margin-top:24px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
@@ -9764,9 +9790,11 @@ document.addEventListener('DOMContentLoaded',function(){
     for(var i=0;i<segs.length;i++){ segs[i].classList.toggle('on', segs[i].getAttribute('data-mode')===mode); }
   }
   function setMode(m){ mode=m; try{ localStorage.setItem('__lib_mode', m); }catch(e){} applyMode(); if(mode==='original') stop(); else start();
-    /* __SAFARI_NAV__: iOS Safari'de çerçeve rengi ancak GERÇEK bir navigasyonla yenilenir
-       (reload bile yetmiyor). Yalnız orada tetiklenir; PWA/masaüstü no-op. */
-    if(typeof _safariThemeNav==='function') _safariThemeNav();
+    /* __SAFARI_NAV__ DEVRE DIŞI (2026-07-16): __SF_LIVE__ cam-çubuk modu çubukları CANLI
+       yaptığı için tema değişiminde sayfa yenilemeye gerek kalmadı. Cihazda cam mod
+       TUTMAZSA tek satırla geri aç:
+       if(typeof _safariThemeNav==='function') _safariThemeNav();
+       (fonksiyon + __lib_restore geri-yükleme altyapısı aynen duruyor.) */
   }
   applyMode();
 
