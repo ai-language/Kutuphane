@@ -8178,6 +8178,25 @@ function _isStandaloneLib(){
     return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
   }catch(e){ return false; }
 }
+/* ====== __VIEW_NAV__ (2026-07-16, kullanıcı seçimi) — hub↔kütüphane geçişinde Safari yenilemesi ===
+   Safari çubukları görünüm rengini yalnız YÜKLEMEDE pişirir → hub'dan kütüphaneye sayfa-içi
+   geçişte çubuk hub tonunda kalıyordu ("Gündüz hub rengini devralıyor"). Artık HUB↔KÜTÜPHANE
+   geçişi (yalnız iOS Safari'de) taze bir navigasyonla yapılır → çubuk hedef görünümün rengiyle doğar.
+   ÜÇ KORUMA: (1) __bootNav: açılış/geri-yükleme sırasındaki programatik enterLib/showHub
+   çağrıları nav YAPMAZ (sonsuz döngü kilidi); (2) nav'dan ÖNCE __lib_lastview=hedef yazılır →
+   EARLY_TC yeni yüklemeyi DOĞRU renkle boyar (yazılmasa çubuk yine ESKİ görünümün rengiyle
+   pişerdi = amaç boşa düşerdi); (3) kütüphane→kütüphane (bayrak butonları) nav TETİKLEMEZ —
+   çubuk rengi zaten aynı (tema rengi), bedava yenileme olmaz. Offline → sayfa-içi geçiş (eski davranış). */
+window.__bootNav = true;   /* initApp ilk turu bitene kadar true (initApp başında setTimeout(0) ile düşer) */
+function _safariViewNav(target){   /* target: libId veya '' (hub). true dönerse navigasyon başladı. */
+  if(!(_isIOSLib() && !_isStandaloneLib())) return false;
+  if(window.__bootNav) return false;
+  try{ if(navigator.onLine === false) return false; }catch(e){}
+  try{ localStorage.setItem('__lib_lastview', target); }catch(e){}
+  try{ localStorage.setItem('__lib_restore', JSON.stringify({ lib: target, y: 0 })); }catch(e){}
+  try{ location.href = location.pathname + '?t=' + Date.now(); return true; }
+  catch(e){ return false; }
+}
 function _safariThemeNav(){
   if(!(_isIOSLib() && !_isStandaloneLib())) return;   /* yalnız iOS Safari */
   /* ÇEVRİMDIŞI KORUMASI: '?t=' YENİ bir URL → önbellekte karşılığı yok, SW de onu yakalamıyor
@@ -8197,9 +8216,13 @@ function _safariThemeNav(){
   catch(e){ try{ location.reload(); }catch(_e){} }
 }
 
-/* Hub <-> kütüphane gecisi — ayni sekme, URL degismez (view-switch). */
+/* Hub <-> kütüphane gecisi — ayni sekme, URL degismez (view-switch).
+   __VIEW_NAV__: iOS Safari'de HUB'DAN girişte taze navigasyon (çubuk hedef renkle doğar);
+   kütüphane→kütüphane geçişi ve açılış çağrıları sayfa-içi kalır. */
 function enterLib(libId){
   if(!LIBS[libId]) return;
+  var _fromHub = !document.querySelector('.lib-view.active');
+  if(_fromHub && _safariViewNav(libId)) return;
   currentLib = libId;
   document.documentElement.style.setProperty('--lib-c', cur().c);
   document.documentElement.style.setProperty('--lib-c2', cur().c2);
@@ -8219,6 +8242,8 @@ function enterLib(libId){
   _applyClk();     // __CLK_TOGGLE__: sunucu clickability override uygula (async; offline/dev → HTML default)
 }
 function showHub(){
+  var _fromLib = !!document.querySelector('.lib-view.active');
+  if(_fromLib && _safariViewNav('')) return;   /* __VIEW_NAV__: kütüphaneden hub'a dönüş → Safari'de taze yükleme (çubuk hub tonuyla doğar) */
   document.querySelectorAll('.lib-view').forEach(function(v){ v.classList.remove('active'); });
   var hub=document.getElementById('hub'); if(hub)hub.classList.add('active');
   document.documentElement.classList.add('hub-on');   /* __HUBCANVAS__: alt güvenli-alan şeridi hub tonuna boyansın */
@@ -9490,6 +9515,9 @@ function showCodeGate(){
 }
 function initApp() {
   if(initApp._done)return; initApp._done=true;
+  /* __VIEW_NAV__: açılış turundaki TÜM programatik enterLib/showHub çağrıları (restore, ?m=
+     fallback, podcast-dönüşü, gate) nav tetiklemesin → kilit initApp'in SENKRON işi bitince düşer. */
+  setTimeout(function(){ window.__bootNav=false; },0);
   /* __SW_MODE__ GÜVENLİK AĞI: ?m=<id>&lib=<lib> adresi SW'siz açıldıysa (SW silinmiş/cache boş/yer imi)
      kütüphane yüklenir ve medya BLOB yoluyla otomatik açılır — kırık link imkansız.
      ?m önce URL'den temizlenir → medyadan geri dönüşte döngü olmaz. */
@@ -9790,11 +9818,14 @@ document.addEventListener('DOMContentLoaded',function(){
     for(var i=0;i<segs.length;i++){ segs[i].classList.toggle('on', segs[i].getAttribute('data-mode')===mode); }
   }
   function setMode(m){ mode=m; try{ localStorage.setItem('__lib_mode', m); }catch(e){} applyMode(); if(mode==='original') stop(); else start();
-    /* __SAFARI_NAV__ DEVRE DIŞI (2026-07-16): __SF_LIVE__ cam-çubuk modu çubukları CANLI
-       yaptığı için tema değişiminde sayfa yenilemeye gerek kalmadı. Cihazda cam mod
-       TUTMAZSA tek satırla geri aç:
-       if(typeof _safariThemeNav==='function') _safariThemeNav();
-       (fonksiyon + __lib_restore geri-yükleme altyapısı aynen duruyor.) */
+    /* __SAFARI_NAV__ GERİ AÇILDI (2026-07-16 cihaz testi): __SF_LIVE__ KISMİ kaldı —
+       WebKit cam modunu yalnız SABİT KATMANSIZ yüklemede (Sade: starfield display:none)
+       açıyor; Gece/Gündüz'ün tam-ekran sabit katmanları (starfield canvas + body::before
+       gradyanı) cam modu kilitleyip rengi mühürlüyor. Kök şeffaflığı GEREKLİ ama YETERSİZ.
+       Tema dokunuşu = otomatik taze yükleme → çubuklar her modda doğru pişer (v14 cihaz
+       onaylı davranış). sf-live DURUYOR: Sade-yüklemede cam bonusu var, yükleme rengine
+       zararı yok. Tam-cam istenirse: Safari'de sabit katmanları kapatmak gerekir (bedelli). */
+    if(typeof _safariThemeNav==='function') _safariThemeNav();
   }
   applyMode();
 
