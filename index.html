@@ -175,6 +175,9 @@
      eskiden yalnız loadMediaState (JS) gizliyordu; async erken-dönüş yollarında (gizli mod, IDB hatası) tik görünür kalabiliyordu.
      Kayıtlı ilerlemeye DOKUNULMAZ → tıklanabilirlik geri açılınca tik aynen GERİ GELİR. */
   .item-label:has(.item-title[data-clk="0"]) .check-wrap{ display:none !important; }
+  /* __SUM__: başlık yanı özet-rapor butonu (📄 = herkes okur/indirir, 📄+ = admin ekler) */
+  .sum-btn{ border:none;background:none;cursor:pointer;font-size:.95rem;padding:2px 4px;margin-left:2px;flex-shrink:0;opacity:.85;line-height:1;-webkit-tap-highlight-color:transparent; }
+  .sum-btn:hover{ opacity:1; }
   .item-title{flex:1;font-size:0.9rem;color:#a0aec0;cursor:pointer;line-height:1.4;user-select:none;}
   .item-title.has-media{color:#2b6cb0;cursor:pointer;}
   .item-title.has-media:hover{text-decoration:underline;}
@@ -652,7 +655,7 @@
   </div>
   <div class="hub-tools">
     <button id="_hub_install_btn" class="hub-tool" onclick="_hubInstallPWA()" style="display:none">📲 Ana Ekrana</button>
-    <button id="_sw_tog" class="hub-tool" onclick="_swToggle()" title="Medya açılış modu: Blob (bugünkü varsayılan) / SW (site adresinden — PWA çubuksuz, uzantılar çalışır)">⚙ Açılış: Blob</button>
+    <button id="_sw_tog" class="hub-tool admin-only" onclick="_swToggle()" title="Medya açılış modu: Blob / SW — DEĞİŞİKLİK TÜM KULLANICILARA uygulanır (admin şifresi sunucu doğrular)">⚙ Açılış: Blob</button><!-- __SW_GLOBAL__: admin-only + KV ortak ayar; cihaz-yerel bozulma ağı herkes için aynen aktif -->
     <button class="hub-tool" onclick="showKeyModal()">🔑</button>
     <button class="hub-tool admin-only" onclick="showTagger()">🏷 Etiketle</button>
     <button class="hub-tool admin-only" onclick="genManifest()">📋 Manifest üret</button>
@@ -4338,11 +4341,17 @@
     <button class="admin-only" onclick="triggerMediaImport()" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.5);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128194; Medya Ekle</button>
     <button class="admin-only" onclick="triggerZipImport()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128476; ZIP Ice Aktar</button>
     <button class="admin-only" onclick="showClkEditor()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">🔓 Tıklanabilirlik</button>
+    <button class="admin-only" onclick="showBiTitlesEditor()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">📝 Başlıklar</button><!-- __BI_TITLES__ -->
     <span class="media-badge" style="font-size:0.72rem;opacity:0.85;color:white;"></span>
   </div>
 </header>
 <div class="content">
-  <div class="lib-empty">
+  <!-- __BI_TITLES__: dinamik başlık alanı (sunucu KV'den; boşsa gizli, lib-empty görünür) -->
+  <div class="tab-content active" id="tab_bi" style="display:none">
+    <div class="tab-stats"><span class="stats-label">Tamamlanan:</span><span class="stats-val" id="stats_bi">0 / 0</span><div class="progress-bar"><div class="progress-fill" id="prog_bi" style="width:0%"></div></div></div>
+    <div id="bi_dyn"></div>
+  </div>
+  <div class="lib-empty" id="bi_empty">
     <div class="le-icon">🚧</div>
     <h2>İçerik yakında</h2>
     <p>BI Dersleri içeriği bir sonraki adımda eklenecek.<br>Şimdiden medya/ZIP içe aktarabilir; yıldızlı kelimeleriniz bu kütüphaneye <b>ayrı</b> tutulur.</p>
@@ -8017,14 +8026,20 @@
     <button class="admin-only" onclick="triggerMediaImport()" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.5);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128194; Medya Ekle</button>
     <button class="admin-only" onclick="triggerZipImport()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">&#128476; ZIP Ice Aktar</button>
     <button class="admin-only" onclick="showClkEditor()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">🔓 Tıklanabilirlik</button>
+    <button class="admin-only" onclick="showBiTitlesEditor()" style="background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.35);color:white;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:0.78rem;font-weight:600;white-space:nowrap;touch-action:manipulation;">📝 Başlıklar</button><!-- __BI_TITLES__ -->
     <span class="media-badge" style="font-size:0.72rem;opacity:0.85;color:white;"></span>
   </div>
 </header>
 <div class="content">
-  <div class="lib-empty">
+  <!-- __BI_TITLES__: dinamik başlık alanı (bi_en — kendi listesi; editörde ⇄ NL'den kopyalanabilir) -->
+  <div class="tab-content active" id="tab_bi_en" style="display:none">
+    <div class="tab-stats"><span class="stats-label">Tamamlanan:</span><span class="stats-val" id="stats_bi_en">0 / 0</span><div class="progress-bar"><div class="progress-fill" id="prog_bi_en" style="width:0%"></div></div></div>
+    <div id="bi_en_dyn"></div>
+  </div>
+  <div class="lib-empty" id="bi_en_empty">
     <div class="le-icon">🇬🇧</div>
     <h2>İçerik yakında</h2>
-    <p>BI Dersleri İngilizce içeriği eklenecek (ID şeması <b>bitem_en_*</b>).<br>Şimdiden medya/ZIP içe aktarabilirsiniz; yıldızlı kelimeleriniz bu kütüphaneye <b>ayrı</b> tutulur.</p>
+    <p>BI Dersleri İngilizce içeriği eklenecek.<br>Şimdiden medya/ZIP içe aktarabilirsiniz; yıldızlı kelimeleriniz bu kütüphaneye <b>ayrı</b> tutulur.</p>
   </div>
 </div>
 </div><!-- /lib-bi_en -->
@@ -8255,6 +8270,8 @@ function enterLib(libId){
   loadMediaState();
   _loadManifest(); // sunucu indirme: manifest varsa basliklari tiklanabilir yap (no-op bos ise)
   _applyClk();     // __CLK_TOGGLE__: sunucu clickability override uygula (async; offline/dev → HTML default)
+  if(libId==='bi'||libId==='bi_en')_biLoadTitles(libId);   // __BI_TITLES__: dinamik başlıklar (cache-önce, sonra sunucu)
+  _sumFetchList(libId).then(function(){ if(currentLib===libId)_sumApply(); });   // __SUM__: özet-raporlu başlıklara 📄 (admin'e 📄+)
 }
 function showHub(){
   var _fromLib = !!document.querySelector('.lib-view.active');
@@ -8487,7 +8504,7 @@ async function _applyClk(){
     var id=el.dataset.id; if(!id) return;
     if((ov[id]==='0'||ov[id]==='1') && el.dataset.clk!==ov[id]){ el.dataset.clk=ov[id]; changed=true; }
   });
-  if(changed){ loadMediaState(); updateCounts(); }   // clickability de\u011fi\u015fti \u2192 medya durumu + "Tamamlanan" sayac\u0131 yenile
+  if(changed){ loadMediaState(); updateCounts(); try{_sumApply();}catch(e){} }   // clickability de\u011fi\u015fti \u2192 medya durumu + sayac + \u00f6zet-butonu (\u00f6zet clk'ye biat) yenile
 }
 /* Admin edit\u00f6r: her ba\u015fl\u0131k i\u00e7in t\u0131klanabilir a\u00e7/kapa \u2192 Uygula (admin \u015fifresi POST ile) \u2192 T\u00dcM kullan\u0131c\u0131ya. */
 function showClkEditor(){
@@ -8516,6 +8533,218 @@ function showClkEditor(){
           loadMediaState(); updateCounts();
           closeModal(o);
           showMsg('Uyguland\u0131','T\u0131klanabilirlik g\u00fcncellendi \u2014 t\u00fcm kullan\u0131c\u0131lara yans\u0131yacak.');
+        }catch(e){ btn.disabled=false; btn.textContent=_ot; showMsg('Hata','Sunucuya ula\u015f\u0131lamad\u0131: '+((e&&e.message)||e)); }
+      };
+    });
+}
+
+/* ============ __BI_TITLES__ v1 (2026-07-17): BI dinamik ba\u015fl\u0131klar \u2014 SUNUCU ORTAK (KV), admin-\u015fifreli yazma ============
+   Mimari: ba\u015fl\u0131k listesi KV'den gelir \u2192 DOM'a Acute kal\u0131b\u0131yla (item-row/item-label/item-title) enjekte edilir \u2192
+   arama/import/manifest/medya/\ud83d\uddd1/y\u0131ld\u0131z/t\u0131klanabilirlik/saya\u00e7 SIFIR ek kodla \u00e7al\u0131\u015f\u0131r (hepsi DOM-g\u00fcd\u00fcml\u00fc).
+   ID = item_<lib>_u<zaman36> \u2192 benzersiz-ebedi (silinen id asla yeniden do\u011fmaz = eski medya yanl\u0131\u015f ba\u015fl\u0131\u011fa yap\u0131\u015famaz), NOKTASIZ (ID \u015femas\u0131 kural\u0131).
+   T\u0131klanabilirlik: dinamik ba\u015fl\u0131k data-clk'siz do\u011far (=t\u0131klanabilir); sunucu clk override'\u0131 (_applyClk) AYNEN uygulan\u0131r \u2192 "biat" tam. */
+var _biTitles={},_biFetched={};
+function _biDynLibs(){ return ['bi','bi_en']; }
+function _biCacheGet(lib){ try{ var s=localStorage.getItem('bi_titles_'+lib); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function _biCacheSet(lib,list){ try{ localStorage.setItem('bi_titles_'+lib,JSON.stringify(list)); }catch(e){} }
+function _biEsc(s){ return (s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _biRender(lib){
+  var v=document.getElementById('lib-'+lib); if(!v) return;
+  var dyn=v.querySelector('#'+lib+'_dyn'), emp=v.querySelector('#'+lib+'_empty'), tabEl=v.querySelector('#tab_'+lib);
+  if(!dyn) return;
+  var list=_biTitles[lib]||[];
+  if(!list.length){ dyn.innerHTML=''; if(tabEl)tabEl.style.display='none'; if(emp)emp.style.display=''; return; } /* bo\u015f \u2192 "\u0130\u00e7erik yak\u0131nda" geri gelir */
+  if(tabEl)tabEl.style.display=''; if(emp)emp.style.display='none';
+  var h='<div class="section ac-cat"><ul class="item-list">';
+  list.forEach(function(it){
+    var sub=(it.sub==='1');
+    var id=_biEsc(it.id);
+    h+='<li class="item-row'+(sub?' ac-sub-row':'')+'" id="row_'+id+'"><div class="item-label">'
+      +'<label for="'+id+'" class="check-wrap"><input type="checkbox" class="item-check" id="'+id+'" onchange="saveState(\''+id+'\',this.checked)"><span class="checkmark"></span></label>'
+      +'<span class="item-title '+(sub?'ac-sub':'cat-title')+'" data-id="'+id+'">'+_biEsc(it.t)+'</span>'
+      +'</div></li>';
+  });
+  h+='</ul></div>';
+  dyn.innerHTML=h;
+}
+function _biAfterRender(lib){ if(currentLib===lib){ loadState(); loadMediaState(); _applyClk(); updateCounts(); _sumApply(); } }
+async function _biLoadTitles(lib){
+  if(_biDynLibs().indexOf(lib)<0) return;
+  if(_biTitles[lib]===undefined){ var c=_biCacheGet(lib); _biTitles[lib]=Array.isArray(c)?c:[]; _biRender(lib); if(_biTitles[lib].length)_biAfterRender(lib); } /* \u00f6nce cache (offline deste\u011fi) */
+  if(!_verLive()||navigator.onLine===false) return;
+  if(_biFetched[lib]) return;
+  try{
+    var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=titles&lib='+encodeURIComponent(lib),{cache:'no-store'});
+    if(!r.ok) return; var j=await r.json(); if(!j||!j.ok||!Array.isArray(j.list)) return;
+    _biFetched[lib]=1;
+    var was=JSON.stringify(_biTitles[lib]||[]), now=JSON.stringify(j.list);
+    _biTitles[lib]=j.list; _biCacheSet(lib,j.list);
+    if(was!==now){ _biRender(lib); _biAfterRender(lib); }
+  }catch(e){}
+}
+function showBiTitlesEditor(){
+  var lib=currentLib;
+  if(_biDynLibs().indexOf(lib)<0){ showMsg('Yaln\u0131z BI','Ba\u015fl\u0131k edit\u00f6r\u00fc BI k\u00fct\u00fcphaneleri i\u00e7indir.'); return; }
+  if(!_verLive()){ showMsg('Sunucu Yok','Ba\u015fl\u0131klar sunucuya kaydedilir (herkese ortak); yaln\u0131z canl\u0131 modda \u00e7al\u0131\u015f\u0131r.'); return; }
+  var work=(_biTitles[lib]||[]).map(function(x){ return {id:x.id,t:x.t,sub:(x.sub==='1')?'1':'0'}; });
+  var oldIds=work.map(function(x){return x.id;});
+  function mkId(){ return 'item_'+lib+'_u'+Date.now().toString(36)+Math.floor(Math.random()*36).toString(36); }
+  showModal('<h3>\ud83d\udcdd Ba\u015fl\u0131klar \u2014 '+_biEsc(lib)+'</h3>'
+    +'<p style="font-size:.8rem;color:#718096;margin:4px 0 8px;line-height:1.5">De\u011fi\u015fiklik <b>t\u00fcm kullan\u0131c\u0131lara</b> yans\u0131r (admin \u015fifresi sunucu do\u011frular). Ba\u015fl\u0131klar eklenince arama/import/manifest/medya/t\u0131klanabilirlik her yerde otomatik ge\u00e7erlidir. T\u0131klanabilirli\u011fi ayr\u0131ca <b>\ud83d\udd13</b> panelinden y\u00f6netirsin.</p>'
+    +'<div id="_bt_list" style="max-height:34vh;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;margin-bottom:10px"></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
+    +'<input type="text" id="_bt_new" placeholder="Yeni ba\u015fl\u0131k\u2026" style="flex:1;min-width:150px;padding:8px 10px;border:1.5px solid #cbd5e0;border-radius:8px;font-size:.88rem">'
+    +'<select id="_bt_sub" style="padding:8px 6px;border:1.5px solid #cbd5e0;border-radius:8px;font-size:.85rem"><option value="0">\u00dcst ba\u015fl\u0131k</option><option value="1">Alt ba\u015fl\u0131k</option></select>'
+    +'<button class="btn-secondary" id="_bt_add" style="padding:8px 14px">\u2795 Ekle</button>'
+    +'</div>'
+    +(lib==='bi_en'?'<button class="btn-secondary" id="_bt_cp" style="width:100%;margin-bottom:10px;font-size:.8rem">\u21c4 NL (bi) listesinden kopyala (senkron)</button>':'')
+    +'<div class="modal-btns"><button class="btn-primary" id="_bt_ap">\ud83d\udd12 Uygula (admin \u015fifresi)</button><button class="btn-secondary" id="_bt_cx">\u0130ptal</button></div>',
+    function(o){
+      function paint(){
+        var el=o.querySelector('#_bt_list');
+        if(!work.length){ el.innerHTML='<div style="color:#a0aec0;font-size:.85rem;padding:6px 0">Hen\u00fcz ba\u015fl\u0131k yok \u2014 a\u015fa\u011f\u0131dan ekle. (Liste bo\u015f kaydedilirse "\u0130\u00e7erik yak\u0131nda" geri gelir.)</div>'; return; }
+        el.innerHTML=work.map(function(x,i){
+          return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0 3px '+(x.sub==='1'?'22px':'0')+';border-bottom:1px dashed #edf2f7">'
+            +'<span style="flex:1;font-size:'+(x.sub==='1'?'.8rem':'.9rem')+';color:'+(x.sub==='1'?'#718096':'#1a202c')+'">'+_biEsc(x.t)+'</span>'
+            +'<span style="font-size:.68rem;color:#a0aec0">'+(x.sub==='1'?'alt':'\u00fcst')+'</span>'
+            +'<button type="button" data-i="'+i+'" class="_bt_del" style="border:none;background:none;cursor:pointer;font-size:.95rem" title="Sil (Uygula ile kesinle\u015fir)">\ud83d\uddd1</button></div>';
+        }).join('');
+        el.querySelectorAll('._bt_del').forEach(function(b){ b.onclick=function(){ work.splice(+this.dataset.i,1); paint(); }; });
+      }
+      paint();
+      o.querySelector('#_bt_add').onclick=function(){
+        var inp=o.querySelector('#_bt_new'), t=(inp.value||'').trim(); if(!t) return;
+        work.push({id:mkId(),t:t.slice(0,200),sub:o.querySelector('#_bt_sub').value==='1'?'1':'0'});
+        inp.value=''; inp.focus(); paint();
+      };
+      var cp=o.querySelector('#_bt_cp');
+      if(cp) cp.onclick=function(){
+        var src=_biTitles['bi']||[];
+        if(!src.length){ showMsg('Bo\u015f','NL (bi) listesi bo\u015f.'); return; }
+        src.forEach(function(x,i){ work.push({id:mkId()+i.toString(36),t:x.t,sub:(x.sub==='1')?'1':'0'}); });
+        paint();
+      };
+      o.querySelector('#_bt_cx').onclick=function(){ closeModal(o); };
+      o.querySelector('#_bt_ap').onclick=async function(){
+        var pass=prompt('Admin \u015fifresi \u2014 ba\u015fl\u0131k listesi T\u00dcM kullan\u0131c\u0131lara uygulanacak:'); if(pass===null) return; pass=pass.trim(); if(!pass) return;
+        var btn=this,_ot=btn.textContent; btn.disabled=true; btn.textContent='Uygulan\u0131yor\u2026';
+        try{
+          var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=settitles&lib='+encodeURIComponent(lib)+'&a='+encodeURIComponent(pass);
+          var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({list:work}),cache:'no-store'});
+          if(r.status===403){ btn.disabled=false; btn.textContent=_ot; showMsg('Reddedildi','Admin \u015fifresi yanl\u0131\u015f \u2014 liste uygulanmad\u0131.'); return; }
+          if(!r.ok) throw new Error('HTTP '+r.status);
+          var kept={}; work.forEach(function(x){ kept[x.id]=1; });
+          var removed=oldIds.filter(function(id){ return !kept[id]; });
+          _biTitles[lib]=work; _biCacheSet(lib,work);
+          _biRender(lib); _biAfterRender(lib);
+          /* silinen ba\u015fl\u0131klar\u0131n YEREL medyas\u0131 temizlenir (\u00e7\u00f6p b\u0131rakma); pos/y\u0131ld\u0131z anahtarlar\u0131 korunur (\ud83d\uddd1 davran\u0131\u015f\u0131yla tutarl\u0131). Sunucu Release dosyas\u0131 varsa o ayr\u0131 \u2014 elle. */
+          var cleaned=0;
+          if(removed.length){ try{ var ks=await _keys(); for(var ri=0;ri<removed.length;ri++){ if(ks.includes(removed[ri])){ try{ await _del(removed[ri]); cleaned++; }catch(e){} } } }catch(e){} }
+          closeModal(o);
+          showMsg('Uyguland\u0131','Ba\u015fl\u0131klar g\u00fcncellendi \u2014 t\u00fcm kullan\u0131c\u0131lara yans\u0131yacak.'+(cleaned?('<br>'+cleaned+' silinen ba\u015fl\u0131\u011f\u0131n yerel medyas\u0131 temizlendi.'):''));
+        }catch(e){ btn.disabled=false; btn.textContent=_ot; showMsg('Hata','Sunucuya ula\u015f\u0131lamad\u0131: '+((e&&e.message)||e)); }
+      };
+    });
+}
+
+/* ============ __SUM__ v1 (2026-07-17): BA\u015eLIK \u00d6ZET RAPORLARI \u2014 KV'de d\u00fcz metin, herkese an\u0131nda (GitHub deploy'suz, R2/bant yok) ============
+   G\u00f6r\u00fcn\u00fcrl\u00fck: \u00f6zeti OLAN ba\u015fl\u0131kta \ud83d\udcc4 (herkes; clk-kapal\u0131da G\u0130ZL\u0130 = t\u0131klanabilirli\u011fe biat); admin ayr\u0131ca \ud83d\udcc4+ ile ekler/d\u00fczenler.
+   \u00d6nizleme: showModal tabanl\u0131 okuyucu (iPhone/Android/masa\u00fcst\u00fc responsive) + \ud83d\udce5 TXT indir. Okunan \u00f6zet localStorage'a cache'lenir \u2192 offline yeniden a\u00e7\u0131l\u0131r. */
+var _sumIds={},_sumFetchedL={};
+function _sumDl(blob,name){ var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){ try{URL.revokeObjectURL(a.href);}catch(e){} try{a.remove();}catch(e){} },1500); } /* kütüphanede downloadBlob yok — yerel yardımcı (iOS Safari uyumu: DOM'a ekle + gecikmeli revoke) */
+function _sumCacheKey(lib,id){ return 'sum_txt_'+lib+'_'+id; }
+async function _sumFetchList(lib){
+  if(!_verLive()||navigator.onLine===false) return;
+  if(_sumFetchedL[lib]) return;
+  try{
+    var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=sumlist&lib='+encodeURIComponent(lib),{cache:'no-store'});
+    if(!r.ok) return; var j=await r.json(); if(!j||!j.ok||!Array.isArray(j.ids)) return;
+    _sumFetchedL[lib]=1; _sumIds[lib]=j.ids;
+    try{ localStorage.setItem('sum_ids_'+lib,JSON.stringify(j.ids)); }catch(e){}
+  }catch(e){}
+}
+function _sumHave(lib){
+  if(_sumIds[lib]) return _sumIds[lib];
+  try{ var s=localStorage.getItem('sum_ids_'+lib); if(s){ _sumIds[lib]=JSON.parse(s)||[]; return _sumIds[lib]; } }catch(e){}
+  return (_sumIds[lib]=[]);
+}
+function _sumApply(){
+  var v=curView(); if(!v) return;
+  var lib=currentLib, have=_sumHave(lib), adm=document.body.classList.contains('admin');
+  v.querySelectorAll('.item-title').forEach(function(el){
+    var id=el.dataset.id; if(!id) return;
+    var lab=el.parentElement; if(!lab||!lab.classList.contains('item-label')) return;
+    var has=have.indexOf(id)>=0;
+    var show=(has||adm)&&el.dataset.clk!=='0'; /* clk-kapal\u0131 ba\u015fl\u0131kta \u00f6zet butonu da G\u0130ZL\u0130 (biat) */
+    var b=lab.querySelector('.sum-btn');
+    if(show){
+      if(!b){ b=document.createElement('button'); b.type='button'; b.className='sum-btn'; lab.appendChild(b); }
+      b.textContent=has?'\ud83d\udcc4':'\ud83d\udcc4+';
+      b.title=has?'\u00d6zet raporu a\u00e7':'\u00d6zet ekle (admin)';
+      b.onclick=(function(_id,_has){ return function(ev){ ev.stopPropagation(); ev.preventDefault(); if(_has)_sumOpen(_id); else _sumEdit(_id,''); }; })(id,has);
+    } else if(b) b.remove();
+  });
+}
+async function _sumGetTxt(lib,id){
+  var cached=null; try{ cached=localStorage.getItem(_sumCacheKey(lib,id)); }catch(e){}
+  if(_verLive()&&navigator.onLine!==false){
+    try{
+      var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=sum&lib='+encodeURIComponent(lib)+'&id='+encodeURIComponent(id),{cache:'no-store'});
+      if(r.ok){ var j=await r.json(); if(j&&j.ok&&typeof j.txt==='string'&&j.txt){ try{ localStorage.setItem(_sumCacheKey(lib,id),j.txt); }catch(e){} return j.txt; } }
+    }catch(e){}
+  }
+  return cached||'';
+}
+function _sumTitleOf(id){
+  var el=(curView()||document).querySelector('.item-title[data-id="'+id+'"]');
+  return el?el.textContent.trim():id;
+}
+async function _sumOpen(id){
+  var lib=currentLib, title=_sumTitleOf(id);
+  var txt=await _sumGetTxt(lib,id);
+  if(!txt){ showMsg('\u00d6zet Yok','Bu ba\u015fl\u0131\u011f\u0131n \u00f6zeti bulunamad\u0131 (\u00e7evrimd\u0131\u015f\u0131ysan ilk a\u00e7\u0131l\u0131\u015f internetle olmal\u0131).'); return; }
+  var adm=document.body.classList.contains('admin');
+  showModal('<h3 style="padding-right:20px">\ud83d\udcc4 '+_biEsc(title)+'</h3>'
+    +'<div style="white-space:pre-wrap;overflow-wrap:break-word;max-height:58vh;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:8px 0 10px;font-size:.92rem;line-height:1.7;text-align:left;background:#fafcff">'+_biEsc(txt)+'</div>'
+    +'<div class="modal-btns"><button class="btn-primary" id="_sm_dl">\ud83d\udce5 TXT indir</button>'+(adm?'<button class="btn-secondary" id="_sm_ed">\u270f\ufe0f D\u00fczenle</button>':'')+'<button class="btn-secondary" id="_sm_cx">Kapat</button></div>',
+    function(o){
+      o.querySelector('#_sm_cx').onclick=function(){ closeModal(o); };
+      o.querySelector('#_sm_dl').onclick=function(){ _sumDl(new Blob([txt],{type:'text/plain;charset=utf-8'}),title.replace(/[\\/:*?"<>|]/g,'_')+' - ozet.txt'); };
+      var ed=o.querySelector('#_sm_ed'); if(ed) ed.onclick=function(){ closeModal(o); _sumEdit(id,txt); };
+    });
+}
+function _sumEdit(id,pre){
+  var lib=currentLib, title=_sumTitleOf(id);
+  if(!_verLive()){ showMsg('Sunucu Yok','\u00d6zetler sunucuya (KV) kaydedilir; yaln\u0131z canl\u0131 modda.'); return; }
+  showModal('<h3 style="padding-right:20px">\u270f\ufe0f \u00d6zet \u2014 '+_biEsc(title)+'</h3>'
+    +'<p style="font-size:.78rem;color:#718096;margin:4px 0 8px;line-height:1.5">D\u00fcz metin yap\u0131\u015ft\u0131r veya TXT y\u00fckle (\u2264120KB). Kaydedince <b>t\u00fcm kullan\u0131c\u0131lar</b> ba\u015fl\u0131ktaki \ud83d\udcc4 ile okur/indirir. Bo\u015f kaydet = \u00f6zeti sil.</p>'
+    +'<input type="file" id="_sm_f" accept=".txt,text/plain" style="margin-bottom:8px;font-size:.8rem;max-width:100%">'
+    +'<textarea id="_sm_t" style="width:100%;min-height:200px;max-height:46vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.88rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
+    +'<div class="modal-btns" style="margin-top:10px"><button class="btn-primary" id="_sm_sv">\ud83d\udd12 Kaydet (admin \u015fifresi)</button><button class="btn-secondary" id="_sm_cx">\u0130ptal</button></div>',
+    function(o){
+      var ta=o.querySelector('#_sm_t'); ta.value=pre||'';
+      o.querySelector('#_sm_cx').onclick=function(){ closeModal(o); };
+      o.querySelector('#_sm_f').addEventListener('change',function(){
+        var f=this.files&&this.files[0]; if(!f) return;
+        var rd=new FileReader(); rd.onload=function(){ ta.value=String(rd.result||''); }; rd.readAsText(f);
+      });
+      o.querySelector('#_sm_sv').onclick=async function(){
+        var txt=ta.value||'';
+        var pass=prompt('Admin \u015fifresi \u2014 \u00f6zet '+(txt.trim()?'kaydedilecek':'S\u0130L\u0130NECEK')+' (t\u00fcm kullan\u0131c\u0131lara):'); if(pass===null) return; pass=pass.trim(); if(!pass) return;
+        var btn=this,_ot=btn.textContent; btn.disabled=true; btn.textContent='Kaydediliyor\u2026';
+        try{
+          var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=setsum&lib='+encodeURIComponent(lib)+'&id='+encodeURIComponent(id)+'&a='+encodeURIComponent(pass);
+          var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({txt:txt}),cache:'no-store'});
+          if(r.status===403){ btn.disabled=false; btn.textContent=_ot; showMsg('Reddedildi','Admin \u015fifresi yanl\u0131\u015f.'); return; }
+          if(r.status===413){ btn.disabled=false; btn.textContent=_ot; showMsg('\u00c7ok B\u00fcy\u00fck','Metin 120KB s\u0131n\u0131r\u0131n\u0131 a\u015f\u0131yor \u2014 k\u0131salt.'); return; }
+          if(!r.ok) throw new Error('HTTP '+r.status);
+          var ids=_sumHave(lib).slice(), p=ids.indexOf(id);
+          if(txt.trim()){ if(p<0)ids.push(id); try{ localStorage.setItem(_sumCacheKey(lib,id),txt); }catch(e){} }
+          else { if(p>=0)ids.splice(p,1); try{ localStorage.removeItem(_sumCacheKey(lib,id)); }catch(e){} }
+          _sumIds[lib]=ids; try{ localStorage.setItem('sum_ids_'+lib,JSON.stringify(ids)); }catch(e){}
+          _sumApply();
+          closeModal(o);
+          showMsg(txt.trim()?'Kaydedildi':'Silindi', txt.trim()?'\u00d6zet yay\u0131nda \u2014 ba\u015fl\u0131ktaki \ud83d\udcc4 ile herkes okuyabilir/indirebilir.':'\u00d6zet kald\u0131r\u0131ld\u0131.');
         }catch(e){ btn.disabled=false; btn.textContent=_ot; showMsg('Hata','Sunucuya ula\u015f\u0131lamad\u0131: '+((e&&e.message)||e)); }
       };
     });
@@ -9205,7 +9434,7 @@ function showKeyModal(){
         if(rc.ok){ try{localStorage.setItem('lib_dl_key',v);}catch(e){} closeModal(o); loadMediaState(); showMsg('Kaydedildi','İndirme kodu doğrulandı ve bu cihaza kaydedildi.'); return; }
         // 2) yönetici parolası mı?
         var ra=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=admin&a='+encodeURIComponent(v),{cache:'no-store'});
-        if(ra.ok){ document.body.classList.add('admin'); try{localStorage.setItem('lib_admin','1');}catch(e){} closeModal(o); showMsg('Yönetici Modu','Sunucu doğruladı — araçlar bu cihazda açıldı.'); return; }
+        if(ra.ok){ document.body.classList.add('admin'); try{localStorage.setItem('lib_admin','1');}catch(e){} try{_sumApply();loadMediaState();}catch(e){} closeModal(o); showMsg('Yönetici Modu','Sunucu doğruladı — araçlar bu cihazda açıldı.'); return; } /* __SUM__: admin açılınca 📄+ butonları anında belirsin */
         if(msg)msg.textContent='Geçersiz kod veya parola.'; btn.disabled=false;
       }catch(e){ if(msg)msg.textContent='Sunucuya ulaşılamadı.'; btn.disabled=false; }
     };
@@ -9542,7 +9771,7 @@ function initApp() {
       try{ history.replaceState(null,'',location.pathname); }catch(e){}
       var _gk=false; try{ _gk=localStorage.getItem('lib_welcome_ok')==='1'; }catch(e){}
       if(_gk){
-        try{ localStorage.setItem('lib_sw_mode','0'); }catch(e){} /* SW yolu bu cihazda çalışmadı → moda güvenme, Blob'a dön */
+        try{ localStorage.setItem('lib_sw_mode','0'); localStorage.setItem('lib_sw_broken','1'); }catch(e){} /* SW yolu bu cihazda çalışmadı → moda güvenme, Blob'a dön. __SW_GLOBAL__: broken bayrağı → sunucu cfg=SW dese bile BU CİHAZ Blob'da kalır (güvenlik ağı herkes için sürer) */
         enterLib(_ql);
         setTimeout(function(){ try{ openMedia(_qm); }catch(e){} },250);
         return;
@@ -9594,7 +9823,7 @@ function _wireSearch(boxId,inpId,resId){
     if(!q){res.style.display='none';return;}
     const v=curView()||document;
     const hits=Array.from(v.querySelectorAll('.item-title'))
-                    .filter(el=>el.textContent.toLowerCase().includes(q)).slice(0,9);
+                    .filter(el=>el.dataset.clk!=='0'&&el.textContent.toLowerCase().includes(q)).slice(0,9); /* __SRCH_CLK__ (2026-07-17): tıklanabilirliği KAPALI başlık arama sonucuna GİRMEZ — tüm kütüphaneler (fonksiyon ortak; data-clk yoksa=tıklanabilir=çıkar; sunucu override _applyClk ile DOM'a işlenmiş olur) */
     if(!hits.length){
       res.innerHTML='<div class="nhg-search-empty">Sonuç bulunamadı</div>';
       res.style.display='block';return;
@@ -9706,14 +9935,40 @@ document.addEventListener('visibilitychange',function(){ if(document.visibilityS
 if('serviceWorker' in navigator && location.protocol==='https:'){ try{ navigator.serviceWorker.register('sw.js'); }catch(e){} }
 function _swPref(){ try{ return localStorage.getItem('lib_sw_mode')!=='0'; }catch(e){ return false; } } /* VARSAYILAN=SW (2026-07-06, kullanıcı istedi). '0'=Blob; güvenlik ağı aksilikte '0' yazar; localStorage patlarsa (gizli mod) Blob. */
 function _swLabel(){ var b=document.getElementById('_sw_tog'); if(b) b.textContent='⚙ Açılış: '+(_swPref()?'SW':'Blob'); }
-function _swToggle(){
+async function _swToggle(){ /* __SW_GLOBAL__ v1 (2026-07-17): mod artık ORTAK (KV settings:cfg) — clk kalıbının aynısı: panel görünse bile YAZMAYI sunucu admin-şifresiyle doğrular. Cihaz-yerel Blob-düşme güvenlik ağı herkes için aynen aktif. */
   var on=!_swPref();
-  try{ localStorage.setItem('lib_sw_mode', on?'1':'0'); }catch(e){}
-  _swLabel();
-  showMsg('Medya Açılış Modu: '+(on?'SW':'Blob'),
-    on ? 'Medya artık <b>gerçek site adresinden</b> açılır: PWA\'da üst/alt çubuk çıkmaz, masaüstünde DeepL gibi uzantılar çalışır.<br><br>Offline aynen çalışır (içerik cihazdan servis edilir). Herhangi bir aksilikte otomatik Blob\'a düşer.'
-        : 'Bugüne kadarki varsayılan mod. Medya blob adresiyle açılır.');
+  if(!_verLive()){ /* dev/file:// → eski yerel davranış (sunucu yok) */
+    try{ localStorage.setItem('lib_sw_mode', on?'1':'0'); }catch(e){}
+    _swLabel(); showMsg('Medya Açılış Modu (yerel): '+(on?'SW':'Blob'),'Geliştirme modu — yalnız bu cihazda değişti.'); return;
+  }
+  var pass=prompt('Admin şifresi — açılış modu ('+(on?'SW':'Blob')+') TÜM kullanıcılara uygulanacak:'); if(pass===null) return; pass=pass.trim(); if(!pass) return;
+  try{
+    var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=setcfg&a='+encodeURIComponent(pass);
+    var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sw:on?'1':'0'}),cache:'no-store'});
+    if(r.status===403){ showMsg('Reddedildi','Admin şifresi yanlış — mod değişmedi.'); return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    try{ localStorage.setItem('lib_sw_mode', on?'1':'0'); if(on) localStorage.removeItem('lib_sw_broken'); }catch(e){}
+    _swLabel();
+    showMsg('Medya Açılış Modu: '+(on?'SW':'Blob')+' (herkese)',
+      (on ? 'Medya artık <b>gerçek site adresinden</b> açılır: PWA\'da üst/alt çubuk çıkmaz, masaüstünde DeepL gibi uzantılar çalışır.<br><br>Offline aynen çalışır. Herhangi bir aksilikte cihaz otomatik Blob\'a düşer.'
+          : 'Medya blob adresiyle açılır.')+'<br><br>Diğer cihazlar bir sonraki açılışta bu moda geçer.');
+  }catch(e){ showMsg('Hata','Sunucuya ulaşılamadı: '+((e&&e.message)||e)); }
 }
+/* __SW_GLOBAL__ boot senkronu: açılışta sunucudaki ortak modu bu cihaza yaz (SW-bozuk cihaz hariç — o Blob'da kalır). Offline/dev → dokunma. */
+async function _swCfgSync(){
+  if(!_verLive()||navigator.onLine===false) return;
+  try{
+    var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=cfg',{cache:'no-store'});
+    if(!r.ok) return; var j=await r.json();
+    if(!j||!j.ok||(j.sw!=='0'&&j.sw!=='1')) return;
+    var broken=false; try{ broken=localStorage.getItem('lib_sw_broken')==='1'; }catch(e){}
+    var v=(broken&&j.sw==='1')?'0':j.sw;
+    try{ localStorage.setItem('lib_sw_mode', v); }catch(e){}
+    _swLabel();
+  }catch(e){}
+}
+setTimeout(_swCfgSync,1200);
+setTimeout(function(){ try{ _biDynLibs().forEach(function(l){ _biLoadTitles(l); }); }catch(e){} },1600); /* __BI_TITLES__: açılışta da yükle → BI'ye hiç girilmeden 📋 Manifest üret/genel akışlar dinamik başlıkları görür (görünüm pasifken de DOM'a render edilir; _biAfterRender yalnız aktif görünümde koşar) */
 /* SW cache'e koy + gerçek adrese git. HER hata → false (çağıran blob yoluna düşer).
    Depo şişmesin: cache'te YALNIZ son açılan medya tutulur (her açılışta IDB'den taze konur). */
 function _swOpen(html,id){
