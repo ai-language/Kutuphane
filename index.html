@@ -8611,18 +8611,46 @@ function showBiTitlesEditor(){
     +'<div class="modal-btns"><button class="btn-primary" id="_bt_ap">\ud83d\udd12 Uygula (admin \u015fifresi)</button><button class="btn-secondary" id="_bt_cx">\u0130ptal</button></div>',
     function(o){
       o.querySelector('.sync-modal').classList.add('sum-big'); /* geni\u015f + gece modu uyumlu */
-      /* __BI_TITLES__ v2 (2026-07-17): H\u0130YERAR\u015e\u0130K ekleme \u2014 d\u00fcz "sona ekle" de\u011fil; her \u00fcst ba\u015fl\u0131\u011f\u0131n \u2795alt'\u0131, alt'\u0131 O \u00fcst\u00fcn blok SONUNA yerle\u015ftirir (araya yeni \u00fcst girmi\u015f olsa bile). \u00dcst silinirse altlar\u0131 da birlikte silinir (onayl\u0131). */
+      /* __BI_TITLES__ v3 (2026-07-17): H\u0130YERAR\u015e\u0130K ekleme + YER\u0130NDE AD DE\u011e\u0130\u015eT\u0130RME (\u270f\ufe0f \u2014 id DE\u011e\u0130\u015eMEZ \u2192 medya/ilerleme/y\u0131ld\u0131z/\u00f6zet ba\u011fl\u0131 kal\u0131r; arama/manifest/di\u011fer her \u015fey DOM+sunucu listesinden otomatik senkron) + SIRALAMA (\u2191\u2193 \u2014 \u00fcst blo\u011fuyla birlikte ta\u015f\u0131n\u0131r, alt kendi \u00fcst\u00fcn\u00fcn blo\u011fu i\u00e7inde kayar). \u00dcst silinirse altlar\u0131 da birlikte (onayl\u0131). */
       function altEnd(ui){ var j=ui+1; while(j<work.length&&work[j].sub==='1')j++; return j; }
+      function moveUst(i,dir){
+        var e=altEnd(i), block=work.slice(i,e);
+        if(dir<0){
+          var p=i-1; while(p>=0&&work[p].sub==='1')p--;
+          if(p<0) return;
+          work.splice(i,e-i); work.splice.apply(work,[p,0].concat(block));
+        } else {
+          if(e>=work.length) return;
+          var ne=altEnd(e), nb=work.slice(e,ne);
+          work.splice(e,ne-e); work.splice.apply(work,[i,0].concat(nb));
+        }
+      }
+      function moveAlt(i,dir){
+        var j=i+dir;
+        if(j<0||j>=work.length||work[j].sub!=='1') return; /* blok s\u0131n\u0131r\u0131: alt, kendi \u00fcst\u00fcn\u00fcn blo\u011fundan \u00e7\u0131kmaz */
+        var t=work[i]; work[i]=work[j]; work[j]=t;
+      }
+      var _mini='border:1px solid #cbd5e0;background:#f7fafc;color:#2d3748;border-radius:6px;cursor:pointer;font-size:.72rem;padding:3px 6px;white-space:nowrap;line-height:1';
       function paint(){
         var el=o.querySelector('#_bt_list');
         if(!work.length){ el.innerHTML='<div style="color:#a0aec0;font-size:.85rem;padding:6px 0">Hen\u00fcz ba\u015fl\u0131k yok \u2014 a\u015fa\u011f\u0131dan \u00fcst ba\u015fl\u0131k ekle. (Liste bo\u015f kaydedilirse "\u0130\u00e7erik yak\u0131nda" geri gelir.)</div>'; return; }
         el.innerHTML=work.map(function(x,i){
           var sub=x.sub==='1';
-          return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0 4px '+(sub?'26px':'0')+';border-bottom:1px dashed #edf2f7">'
+          return '<div style="display:flex;align-items:center;gap:5px;padding:4px 0 4px '+(sub?'26px':'0')+';border-bottom:1px dashed #edf2f7">'
             +'<span style="flex:1;font-size:'+(sub?'.8rem':'.92rem')+';color:'+(sub?'#718096':'#1a202c')+';overflow-wrap:anywhere">'+_biEsc(x.t)+'</span>'
-            +(sub?'':'<button type="button" data-i="'+i+'" class="_bt_alt" style="border:1px solid #cbd5e0;background:#f7fafc;color:#2d3748;border-radius:6px;cursor:pointer;font-size:.7rem;padding:3px 7px;white-space:nowrap" title="Bu \u00fcst ba\u015fl\u0131\u011f\u0131n alt\u0131na alt ba\u015fl\u0131k ekle">\u2795alt</button>')
+            +'<button type="button" data-i="'+i+'" class="_bt_rn" style="'+_mini+'" title="Ad\u0131 de\u011fi\u015ftir (id korunur \u2014 medya/ilerleme/\u00f6zet ba\u011fl\u0131 kal\u0131r)">\u270f\ufe0f</button>'
+            +'<button type="button" data-i="'+i+'" class="_bt_up" style="'+_mini+'" title="Yukar\u0131 ta\u015f\u0131">\u2191</button>'
+            +'<button type="button" data-i="'+i+'" class="_bt_dn" style="'+_mini+'" title="A\u015fa\u011f\u0131 ta\u015f\u0131">\u2193</button>'
+            +(sub?'':'<button type="button" data-i="'+i+'" class="_bt_alt" style="'+_mini+'" title="Bu \u00fcst ba\u015fl\u0131\u011f\u0131n alt\u0131na alt ba\u015fl\u0131k ekle">\u2795alt</button>')
             +'<button type="button" data-i="'+i+'" class="_bt_del" style="border:none;background:none;cursor:pointer;font-size:.95rem" title="Sil (Uygula ile kesinle\u015fir)">\ud83d\uddd1</button></div>';
         }).join('');
+        el.querySelectorAll('._bt_rn').forEach(function(b){ b.onclick=function(){
+          var i=+this.dataset.i;
+          var t=prompt('Yeni ad:',work[i].t); if(t===null) return; t=t.trim(); if(!t) return;
+          work[i].t=t.slice(0,200); paint();
+        }; });
+        el.querySelectorAll('._bt_up').forEach(function(b){ b.onclick=function(){ var i=+this.dataset.i; if(work[i].sub==='1')moveAlt(i,-1); else moveUst(i,-1); paint(); }; });
+        el.querySelectorAll('._bt_dn').forEach(function(b){ b.onclick=function(){ var i=+this.dataset.i; if(work[i].sub==='1')moveAlt(i,1); else moveUst(i,1); paint(); }; });
         el.querySelectorAll('._bt_alt').forEach(function(b){ b.onclick=function(){
           var ui=+this.dataset.i;
           var t=prompt('"'+work[ui].t+'" alt\u0131na ALT ba\u015fl\u0131k:'); if(t===null) return; t=t.trim(); if(!t) return;
@@ -8739,8 +8767,10 @@ function _sumAddPart(id){
 async function _sumGetTxt(lib,id){
   var cached=null; try{ cached=localStorage.getItem(_sumCacheKey(lib,id)); }catch(e){}
   if(_verLive()&&navigator.onLine!==false){
+    var _key=''; try{ _key=localStorage.getItem('lib_dl_key')||''; }catch(e){} /* __SUM__ v2.1: kişiye özel indirme kodu — içerikle AYNI kapı */
     try{
-      var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=sum&lib='+encodeURIComponent(lib)+'&id='+encodeURIComponent(id),{cache:'no-store'});
+      var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=sum&lib='+encodeURIComponent(lib)+'&id='+encodeURIComponent(id)+'&k='+encodeURIComponent(_key),{cache:'no-store'});
+      if(r.status===403&&!cached) return '__DENIED__'; /* kod yok/yanlış + cache de yok → kod modalı açılacak (cache varsa cache kazanır = daha önce açmış cihaz offline'da okumaya devam eder) */
       if(r.ok){ var j=await r.json(); if(j&&j.ok&&typeof j.txt==='string'&&j.txt){ try{ localStorage.setItem(_sumCacheKey(lib,id),j.txt); }catch(e){} return j.txt; } }
     }catch(e){}
   }
@@ -8754,6 +8784,7 @@ async function _sumOpen(id,sid,no,tot){
   sid=sid||id; no=no||1; tot=tot||1;
   var lib=currentLib, title=_sumTitleOf(id), ptag=(tot>1?(' \u2014 B\u00f6l\u00fcm '+no+'/'+tot):'');
   var txt=await _sumGetTxt(lib,sid);
+  if(txt==='__DENIED__'){ await showMsg('Kod Gerekli','\u00d6zet raporlar\u0131, i\u00e7erik indirmedeki <b>ki\u015fiye \u00f6zel kodla</b> a\u00e7\u0131l\u0131r. Kodunu gir \u2014 sonra \ud83d\udcc4\'ye tekrar bas.'); showKeyModal(); return; } /* __SUM__ v2.1 */
   if(!txt){ showMsg('\u00d6zet Yok','Bu ba\u015fl\u0131\u011f\u0131n \u00f6zeti bulunamad\u0131 (\u00e7evrimd\u0131\u015f\u0131ysan ilk a\u00e7\u0131l\u0131\u015f internetle olmal\u0131).'); return; }
   var adm=document.body.classList.contains('admin');
   showModal('<h3 style="padding-right:20px">\ud83d\udcc4 '+_biEsc(title)+_biEsc(ptag)+'</h3>'
