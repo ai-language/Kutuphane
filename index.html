@@ -175,9 +175,20 @@
      eskiden yalnız loadMediaState (JS) gizliyordu; async erken-dönüş yollarında (gizli mod, IDB hatası) tik görünür kalabiliyordu.
      Kayıtlı ilerlemeye DOKUNULMAZ → tıklanabilirlik geri açılınca tik aynen GERİ GELİR. */
   .item-label:has(.item-title[data-clk="0"]) .check-wrap{ display:none !important; }
-  /* __SUM__: başlık yanı özet-rapor butonu (📄 = herkes okur/indirir, 📄+ = admin ekler) */
-  .sum-btn{ border:none;background:none;cursor:pointer;font-size:.95rem;padding:2px 4px;margin-left:2px;flex-shrink:0;opacity:.85;line-height:1;-webkit-tap-highlight-color:transparent; }
+  /* __SUM__ v2: başlık yanı özet-rapor butonları (📄/📄1..N = herkes okur, 📄+ = admin ekler; ↗ ok HER ZAMAN en sağda kalır) */
+  .sum-wrap{ display:inline-flex;align-items:center;gap:1px;flex-shrink:0;margin-left:2px; }
+  .sum-btn{ border:none;background:none;cursor:pointer;font-size:.95rem;padding:2px 3px;flex-shrink:0;opacity:.85;line-height:1;-webkit-tap-highlight-color:transparent; }
   .sum-btn:hover{ opacity:1; }
+  /* __SUM__ v2: BÜYÜK okuyucu/editör modalı — iPhone'da tam-genişlik, masaüstünde geniş; gece modu TAM uyumlu */
+  .sync-modal.sum-big{ max-width:min(980px,94vw); width:94vw; max-height:92vh; display:flex; flex-direction:column; }
+  .sum-view{ white-space:pre-wrap;overflow-wrap:break-word;flex:1;min-height:0;max-height:66vh;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin:8px 0 10px;font-size:.95rem;line-height:1.75;text-align:left;background:#fafcff;color:#1a202c; }
+  @media(min-width:700px){ .sum-view{ font-size:1.03rem; max-height:72vh; padding:22px 26px; } .sync-modal.sum-big{ padding:26px 30px; } }
+  html[data-theme="dark"] .sync-modal.sum-big{ background:#161b22; }
+  html[data-theme="dark"] .sync-modal.sum-big h3{ color:#e6edf3; }
+  html[data-theme="dark"] .sync-modal.sum-big p{ color:#9aa4b2; }
+  html[data-theme="dark"] .sum-view{ background:#0d1117; color:#dbe3ec; border-color:#30363d; }
+  html[data-theme="dark"] .sync-modal.sum-big .btn-secondary{ background:#21262d; color:#c9d1d9; }
+  html[data-theme="dark"] .sync-modal.sum-big textarea, html[data-theme="dark"] .sync-modal.sum-big input[type="text"]{ background:#0d1117; color:#dbe3ec; border-color:#30363d; }
   .item-title{flex:1;font-size:0.9rem;color:#a0aec0;cursor:pointer;line-height:1.4;user-select:none;}
   .item-title.has-media{color:#2b6cb0;cursor:pointer;}
   .item-title.has-media:hover{text-decoration:underline;}
@@ -8590,31 +8601,47 @@ function showBiTitlesEditor(){
   var oldIds=work.map(function(x){return x.id;});
   function mkId(){ return 'item_'+lib+'_u'+Date.now().toString(36)+Math.floor(Math.random()*36).toString(36); }
   showModal('<h3>\ud83d\udcdd Ba\u015fl\u0131klar \u2014 '+_biEsc(lib)+'</h3>'
-    +'<p style="font-size:.8rem;color:#718096;margin:4px 0 8px;line-height:1.5">De\u011fi\u015fiklik <b>t\u00fcm kullan\u0131c\u0131lara</b> yans\u0131r (admin \u015fifresi sunucu do\u011frular). Ba\u015fl\u0131klar eklenince arama/import/manifest/medya/t\u0131klanabilirlik her yerde otomatik ge\u00e7erlidir. T\u0131klanabilirli\u011fi ayr\u0131ca <b>\ud83d\udd13</b> panelinden y\u00f6netirsin.</p>'
-    +'<div id="_bt_list" style="max-height:34vh;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;margin-bottom:10px"></div>'
+    +'<p style="font-size:.8rem;color:#718096;margin:4px 0 8px;line-height:1.5">De\u011fi\u015fiklik <b>t\u00fcm kullan\u0131c\u0131lara</b> yans\u0131r (admin \u015fifresi sunucu do\u011frular). Her \u00fcst ba\u015fl\u0131\u011f\u0131n yan\u0131ndaki <b>\u2795alt</b> ile o ba\u015fl\u0131\u011f\u0131n alt\u0131na <b>her an</b> alt ba\u015fl\u0131k eklersin. Arama/import/manifest/medya/t\u0131klanabilirlik her yerde otomatik ge\u00e7erlidir; t\u0131klanabilirlik <b>\ud83d\udd13</b> panelinden.</p>'
+    +'<div id="_bt_list" style="max-height:40vh;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;margin-bottom:10px;background:#fff"></div>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
-    +'<input type="text" id="_bt_new" placeholder="Yeni ba\u015fl\u0131k\u2026" style="flex:1;min-width:150px;padding:8px 10px;border:1.5px solid #cbd5e0;border-radius:8px;font-size:.88rem">'
-    +'<select id="_bt_sub" style="padding:8px 6px;border:1.5px solid #cbd5e0;border-radius:8px;font-size:.85rem"><option value="0">\u00dcst ba\u015fl\u0131k</option><option value="1">Alt ba\u015fl\u0131k</option></select>'
-    +'<button class="btn-secondary" id="_bt_add" style="padding:8px 14px">\u2795 Ekle</button>'
+    +'<input type="text" id="_bt_new" placeholder="Yeni \u00dcST ba\u015fl\u0131k\u2026" style="flex:1;min-width:150px;padding:8px 10px;border:1.5px solid #cbd5e0;border-radius:8px;font-size:.88rem">'
+    +'<button class="btn-secondary" id="_bt_add" style="padding:8px 14px">\u2795 \u00dcst ekle</button>'
     +'</div>'
     +(lib==='bi_en'?'<button class="btn-secondary" id="_bt_cp" style="width:100%;margin-bottom:10px;font-size:.8rem">\u21c4 NL (bi) listesinden kopyala (senkron)</button>':'')
     +'<div class="modal-btns"><button class="btn-primary" id="_bt_ap">\ud83d\udd12 Uygula (admin \u015fifresi)</button><button class="btn-secondary" id="_bt_cx">\u0130ptal</button></div>',
     function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big'); /* geni\u015f + gece modu uyumlu */
+      /* __BI_TITLES__ v2 (2026-07-17): H\u0130YERAR\u015e\u0130K ekleme \u2014 d\u00fcz "sona ekle" de\u011fil; her \u00fcst ba\u015fl\u0131\u011f\u0131n \u2795alt'\u0131, alt'\u0131 O \u00fcst\u00fcn blok SONUNA yerle\u015ftirir (araya yeni \u00fcst girmi\u015f olsa bile). \u00dcst silinirse altlar\u0131 da birlikte silinir (onayl\u0131). */
+      function altEnd(ui){ var j=ui+1; while(j<work.length&&work[j].sub==='1')j++; return j; }
       function paint(){
         var el=o.querySelector('#_bt_list');
-        if(!work.length){ el.innerHTML='<div style="color:#a0aec0;font-size:.85rem;padding:6px 0">Hen\u00fcz ba\u015fl\u0131k yok \u2014 a\u015fa\u011f\u0131dan ekle. (Liste bo\u015f kaydedilirse "\u0130\u00e7erik yak\u0131nda" geri gelir.)</div>'; return; }
+        if(!work.length){ el.innerHTML='<div style="color:#a0aec0;font-size:.85rem;padding:6px 0">Hen\u00fcz ba\u015fl\u0131k yok \u2014 a\u015fa\u011f\u0131dan \u00fcst ba\u015fl\u0131k ekle. (Liste bo\u015f kaydedilirse "\u0130\u00e7erik yak\u0131nda" geri gelir.)</div>'; return; }
         el.innerHTML=work.map(function(x,i){
-          return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0 3px '+(x.sub==='1'?'22px':'0')+';border-bottom:1px dashed #edf2f7">'
-            +'<span style="flex:1;font-size:'+(x.sub==='1'?'.8rem':'.9rem')+';color:'+(x.sub==='1'?'#718096':'#1a202c')+'">'+_biEsc(x.t)+'</span>'
-            +'<span style="font-size:.68rem;color:#a0aec0">'+(x.sub==='1'?'alt':'\u00fcst')+'</span>'
+          var sub=x.sub==='1';
+          return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0 4px '+(sub?'26px':'0')+';border-bottom:1px dashed #edf2f7">'
+            +'<span style="flex:1;font-size:'+(sub?'.8rem':'.92rem')+';color:'+(sub?'#718096':'#1a202c')+';overflow-wrap:anywhere">'+_biEsc(x.t)+'</span>'
+            +(sub?'':'<button type="button" data-i="'+i+'" class="_bt_alt" style="border:1px solid #cbd5e0;background:#f7fafc;color:#2d3748;border-radius:6px;cursor:pointer;font-size:.7rem;padding:3px 7px;white-space:nowrap" title="Bu \u00fcst ba\u015fl\u0131\u011f\u0131n alt\u0131na alt ba\u015fl\u0131k ekle">\u2795alt</button>')
             +'<button type="button" data-i="'+i+'" class="_bt_del" style="border:none;background:none;cursor:pointer;font-size:.95rem" title="Sil (Uygula ile kesinle\u015fir)">\ud83d\uddd1</button></div>';
         }).join('');
-        el.querySelectorAll('._bt_del').forEach(function(b){ b.onclick=function(){ work.splice(+this.dataset.i,1); paint(); }; });
+        el.querySelectorAll('._bt_alt').forEach(function(b){ b.onclick=function(){
+          var ui=+this.dataset.i;
+          var t=prompt('"'+work[ui].t+'" alt\u0131na ALT ba\u015fl\u0131k:'); if(t===null) return; t=t.trim(); if(!t) return;
+          work.splice(altEnd(ui),0,{id:mkId(),t:t.slice(0,200),sub:'1'});
+          paint();
+        }; });
+        el.querySelectorAll('._bt_del').forEach(function(b){ b.onclick=function(){
+          var i=+this.dataset.i;
+          if(work[i].sub!=='1'){ var end=altEnd(i), n=end-i-1;
+            if(n>0&&!confirm('"'+work[i].t+'" \u00fcst ba\u015fl\u0131\u011f\u0131 '+n+' alt ba\u015fl\u0131\u011f\u0131yla B\u0130RL\u0130KTE silinsin mi?')) return;
+            work.splice(i,end-i);
+          } else work.splice(i,1);
+          paint();
+        }; });
       }
       paint();
       o.querySelector('#_bt_add').onclick=function(){
         var inp=o.querySelector('#_bt_new'), t=(inp.value||'').trim(); if(!t) return;
-        work.push({id:mkId(),t:t.slice(0,200),sub:o.querySelector('#_bt_sub').value==='1'?'1':'0'});
+        work.push({id:mkId(),t:t.slice(0,200),sub:'0'});
         inp.value=''; inp.focus(); paint();
       };
       var cp=o.querySelector('#_bt_cp');
@@ -8668,22 +8695,46 @@ function _sumHave(lib){
   try{ var s=localStorage.getItem('sum_ids_'+lib); if(s){ _sumIds[lib]=JSON.parse(s)||[]; return _sumIds[lib]; } }catch(e){}
   return (_sumIds[lib]=[]);
 }
-function _sumApply(){
+function _sumPartsOf(lib,id){ /* __SUM__ v2: bir ba\u015fl\u0131\u011f\u0131n T\u00dcM \u00f6zet par\u00e7alar\u0131 \u2014 temel anahtar (par\u00e7a 1) + <id>__pN (N>=2); 120KB'yi a\u015fan raporlar b\u00f6l\u00fcnerek eklenir, butonlar yan yana dizilir */
+  var have=_sumHave(lib), out=[];
+  have.forEach(function(s){
+    if(s===id) out.push({sid:s,n:1});
+    else if(s.indexOf(id+'__p')===0){ var n=parseInt(s.slice(id.length+3),10); if(n>=2&&isFinite(n)) out.push({sid:s,n:n}); }
+  });
+  out.sort(function(a,b){ return a.n-b.n; });
+  return out;
+}
+function _sumApply(){ /* __SUM__ v2: t\u0131klanabilirlikten BA\u011eIMSIZ (kullan\u0131c\u0131 karar\u0131 2026-07-17: ba\u015fl\u0131k mevcutsa buton her ba\u015fl\u0131kta) \u2014 clk yaln\u0131z medya-t\u0131klamay\u0131 y\u00f6netir. \u2197 ok butonu HER ZAMAN en sa\u011fda (sum-wrap ondan \u00d6NCE eklenir). */
   var v=curView(); if(!v) return;
-  var lib=currentLib, have=_sumHave(lib), adm=document.body.classList.contains('admin');
+  var lib=currentLib, adm=document.body.classList.contains('admin');
   v.querySelectorAll('.item-title').forEach(function(el){
     var id=el.dataset.id; if(!id) return;
     var lab=el.parentElement; if(!lab||!lab.classList.contains('item-label')) return;
-    var has=have.indexOf(id)>=0;
-    var show=(has||adm)&&el.dataset.clk!=='0'; /* clk-kapal\u0131 ba\u015fl\u0131kta \u00f6zet butonu da G\u0130ZL\u0130 (biat) */
-    var b=lab.querySelector('.sum-btn');
-    if(show){
-      if(!b){ b=document.createElement('button'); b.type='button'; b.className='sum-btn'; lab.appendChild(b); }
-      b.textContent=has?'\ud83d\udcc4':'\ud83d\udcc4+';
-      b.title=has?'\u00d6zet raporu a\u00e7':'\u00d6zet ekle (admin)';
-      b.onclick=(function(_id,_has){ return function(ev){ ev.stopPropagation(); ev.preventDefault(); if(_has)_sumOpen(_id); else _sumEdit(_id,''); }; })(id,has);
-    } else if(b) b.remove();
+    var old=lab.querySelector('.sum-wrap'); if(old) old.remove();
+    var parts=_sumPartsOf(lib,id);
+    if(!parts.length&&!adm) return;
+    var wrap=document.createElement('span'); wrap.className='sum-wrap';
+    parts.forEach(function(p,ix){
+      var b=document.createElement('button'); b.type='button'; b.className='sum-btn';
+      b.textContent='\ud83d\udcc4'+(parts.length>1?String(ix+1):'');
+      b.title='\u00d6zet raporu a\u00e7'+(parts.length>1?(' \u2014 b\u00f6l\u00fcm '+(ix+1)+'/'+parts.length):'');
+      b.onclick=(function(_id,_sid,_no,_tot){ return function(ev){ ev.stopPropagation(); ev.preventDefault(); _sumOpen(_id,_sid,_no,_tot); }; })(id,p.sid,ix+1,parts.length);
+      wrap.appendChild(b);
+    });
+    if(adm){ /* yeni-TXT-ekle butonu par\u00e7alar\u0131n EN SA\u011eINDA */
+      var ab=document.createElement('button'); ab.type='button'; ab.className='sum-btn';
+      ab.textContent='\ud83d\udcc4+'; ab.title=parts.length?('Yeni par\u00e7a ekle (b\u00f6l\u00fcm '+(parts.length+1)+')'):'\u00d6zet ekle (admin)';
+      ab.onclick=(function(_id){ return function(ev){ ev.stopPropagation(); ev.preventDefault(); _sumAddPart(_id); }; })(id);
+      wrap.appendChild(ab);
+    }
+    var arrow=lab.querySelector('.nhg-btn');
+    if(arrow) lab.insertBefore(wrap,arrow); else lab.appendChild(wrap);
   });
+}
+function _sumAddPart(id){
+  var parts=_sumPartsOf(currentLib,id), mx=0;
+  parts.forEach(function(p){ mx=Math.max(mx,p.n); });
+  _sumEdit(id,(mx===0)?id:(id+'__p'+(mx+1)),'');
 }
 async function _sumGetTxt(lib,id){
   var cached=null; try{ cached=localStorage.getItem(_sumCacheKey(lib,id)); }catch(e){}
@@ -8699,29 +8750,34 @@ function _sumTitleOf(id){
   var el=(curView()||document).querySelector('.item-title[data-id="'+id+'"]');
   return el?el.textContent.trim():id;
 }
-async function _sumOpen(id){
-  var lib=currentLib, title=_sumTitleOf(id);
-  var txt=await _sumGetTxt(lib,id);
+async function _sumOpen(id,sid,no,tot){
+  sid=sid||id; no=no||1; tot=tot||1;
+  var lib=currentLib, title=_sumTitleOf(id), ptag=(tot>1?(' \u2014 B\u00f6l\u00fcm '+no+'/'+tot):'');
+  var txt=await _sumGetTxt(lib,sid);
   if(!txt){ showMsg('\u00d6zet Yok','Bu ba\u015fl\u0131\u011f\u0131n \u00f6zeti bulunamad\u0131 (\u00e7evrimd\u0131\u015f\u0131ysan ilk a\u00e7\u0131l\u0131\u015f internetle olmal\u0131).'); return; }
   var adm=document.body.classList.contains('admin');
-  showModal('<h3 style="padding-right:20px">\ud83d\udcc4 '+_biEsc(title)+'</h3>'
-    +'<div style="white-space:pre-wrap;overflow-wrap:break-word;max-height:58vh;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:8px 0 10px;font-size:.92rem;line-height:1.7;text-align:left;background:#fafcff">'+_biEsc(txt)+'</div>'
+  showModal('<h3 style="padding-right:20px">\ud83d\udcc4 '+_biEsc(title)+_biEsc(ptag)+'</h3>'
+    +'<div class="sum-view">'+_biEsc(txt)+'</div>'
     +'<div class="modal-btns"><button class="btn-primary" id="_sm_dl">\ud83d\udce5 TXT indir</button>'+(adm?'<button class="btn-secondary" id="_sm_ed">\u270f\ufe0f D\u00fczenle</button>':'')+'<button class="btn-secondary" id="_sm_cx">Kapat</button></div>',
     function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big'); /* __SUM__ v2: B\u00dcY\u00dcK okuyucu (iPhone tam-geni\u015flik, masa\u00fcst\u00fc ~980px) + gece modu CSS'i */
       o.querySelector('#_sm_cx').onclick=function(){ closeModal(o); };
-      o.querySelector('#_sm_dl').onclick=function(){ _sumDl(new Blob([txt],{type:'text/plain;charset=utf-8'}),title.replace(/[\\/:*?"<>|]/g,'_')+' - ozet.txt'); };
-      var ed=o.querySelector('#_sm_ed'); if(ed) ed.onclick=function(){ closeModal(o); _sumEdit(id,txt); };
+      o.querySelector('#_sm_dl').onclick=function(){ _sumDl(new Blob([txt],{type:'text/plain;charset=utf-8'}),title.replace(/[\\/:*?"<>|]/g,'_')+' - ozet'+(tot>1?(' '+no):'')+'.txt'); };
+      var ed=o.querySelector('#_sm_ed'); if(ed) ed.onclick=function(){ closeModal(o); _sumEdit(id,sid,txt); };
     });
 }
-function _sumEdit(id,pre){
+function _sumEdit(id,sid,pre){
+  sid=sid||id;
   var lib=currentLib, title=_sumTitleOf(id);
+  var pno=(sid===id)?1:(parseInt(sid.slice(id.length+3),10)||1);
   if(!_verLive()){ showMsg('Sunucu Yok','\u00d6zetler sunucuya (KV) kaydedilir; yaln\u0131z canl\u0131 modda.'); return; }
-  showModal('<h3 style="padding-right:20px">\u270f\ufe0f \u00d6zet \u2014 '+_biEsc(title)+'</h3>'
-    +'<p style="font-size:.78rem;color:#718096;margin:4px 0 8px;line-height:1.5">D\u00fcz metin yap\u0131\u015ft\u0131r veya TXT y\u00fckle (\u2264120KB). Kaydedince <b>t\u00fcm kullan\u0131c\u0131lar</b> ba\u015fl\u0131ktaki \ud83d\udcc4 ile okur/indirir. Bo\u015f kaydet = \u00f6zeti sil.</p>'
+  showModal('<h3 style="padding-right:20px">\u270f\ufe0f \u00d6zet \u2014 '+_biEsc(title)+(pno>1?(' \u2014 B\u00f6l\u00fcm '+pno):'')+'</h3>'
+    +'<p style="font-size:.78rem;color:#718096;margin:4px 0 8px;line-height:1.5">D\u00fcz metin yap\u0131\u015ft\u0131r veya TXT y\u00fckle (par\u00e7a ba\u015f\u0131na \u2264120KB \u2014 uzun raporu \ud83d\udcc4+ ile <b>birden \u00e7ok par\u00e7aya</b> b\u00f6lebilirsin, butonlar yan yana dizilir). Kaydedince <b>t\u00fcm kullan\u0131c\u0131lar</b> ba\u015fl\u0131ktaki \ud83d\udcc4 ile okur/indirir. Bo\u015f kaydet = bu par\u00e7ay\u0131 sil.</p>'
     +'<input type="file" id="_sm_f" accept=".txt,text/plain" style="margin-bottom:8px;font-size:.8rem;max-width:100%">'
-    +'<textarea id="_sm_t" style="width:100%;min-height:200px;max-height:46vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.88rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
+    +'<textarea id="_sm_t" style="width:100%;min-height:240px;max-height:56vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
     +'<div class="modal-btns" style="margin-top:10px"><button class="btn-primary" id="_sm_sv">\ud83d\udd12 Kaydet (admin \u015fifresi)</button><button class="btn-secondary" id="_sm_cx">\u0130ptal</button></div>',
     function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big'); /* edit\u00f6r de B\u00dcY\u00dcK + gece modu uyumlu */
       var ta=o.querySelector('#_sm_t'); ta.value=pre||'';
       o.querySelector('#_sm_cx').onclick=function(){ closeModal(o); };
       o.querySelector('#_sm_f').addEventListener('change',function(){
@@ -8730,21 +8786,21 @@ function _sumEdit(id,pre){
       });
       o.querySelector('#_sm_sv').onclick=async function(){
         var txt=ta.value||'';
-        var pass=prompt('Admin \u015fifresi \u2014 \u00f6zet '+(txt.trim()?'kaydedilecek':'S\u0130L\u0130NECEK')+' (t\u00fcm kullan\u0131c\u0131lara):'); if(pass===null) return; pass=pass.trim(); if(!pass) return;
+        var pass=prompt('Admin \u015fifresi \u2014 \u00f6zet par\u00e7as\u0131 '+(txt.trim()?'kaydedilecek':'S\u0130L\u0130NECEK')+' (t\u00fcm kullan\u0131c\u0131lara):'); if(pass===null) return; pass=pass.trim(); if(!pass) return;
         var btn=this,_ot=btn.textContent; btn.disabled=true; btn.textContent='Kaydediliyor\u2026';
         try{
-          var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=setsum&lib='+encodeURIComponent(lib)+'&id='+encodeURIComponent(id)+'&a='+encodeURIComponent(pass);
+          var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=setsum&lib='+encodeURIComponent(lib)+'&id='+encodeURIComponent(sid)+'&a='+encodeURIComponent(pass);
           var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({txt:txt}),cache:'no-store'});
           if(r.status===403){ btn.disabled=false; btn.textContent=_ot; showMsg('Reddedildi','Admin \u015fifresi yanl\u0131\u015f.'); return; }
-          if(r.status===413){ btn.disabled=false; btn.textContent=_ot; showMsg('\u00c7ok B\u00fcy\u00fck','Metin 120KB s\u0131n\u0131r\u0131n\u0131 a\u015f\u0131yor \u2014 k\u0131salt.'); return; }
+          if(r.status===413){ btn.disabled=false; btn.textContent=_ot; showMsg('\u00c7ok B\u00fcy\u00fck','Bu par\u00e7a 120KB s\u0131n\u0131r\u0131n\u0131 a\u015f\u0131yor \u2014 kalan\u0131n\u0131 \ud83d\udcc4+ ile yeni par\u00e7aya koy.'); return; }
           if(!r.ok) throw new Error('HTTP '+r.status);
-          var ids=_sumHave(lib).slice(), p=ids.indexOf(id);
-          if(txt.trim()){ if(p<0)ids.push(id); try{ localStorage.setItem(_sumCacheKey(lib,id),txt); }catch(e){} }
-          else { if(p>=0)ids.splice(p,1); try{ localStorage.removeItem(_sumCacheKey(lib,id)); }catch(e){} }
+          var ids=_sumHave(lib).slice(), p=ids.indexOf(sid);
+          if(txt.trim()){ if(p<0)ids.push(sid); try{ localStorage.setItem(_sumCacheKey(lib,sid),txt); }catch(e){} }
+          else { if(p>=0)ids.splice(p,1); try{ localStorage.removeItem(_sumCacheKey(lib,sid)); }catch(e){} }
           _sumIds[lib]=ids; try{ localStorage.setItem('sum_ids_'+lib,JSON.stringify(ids)); }catch(e){}
           _sumApply();
           closeModal(o);
-          showMsg(txt.trim()?'Kaydedildi':'Silindi', txt.trim()?'\u00d6zet yay\u0131nda \u2014 ba\u015fl\u0131ktaki \ud83d\udcc4 ile herkes okuyabilir/indirebilir.':'\u00d6zet kald\u0131r\u0131ld\u0131.');
+          showMsg(txt.trim()?'Kaydedildi':'Silindi', txt.trim()?'Par\u00e7a yay\u0131nda \u2014 ba\u015fl\u0131ktaki \ud83d\udcc4 ile herkes okuyabilir/indirebilir.':'Par\u00e7a kald\u0131r\u0131ld\u0131.');
         }catch(e){ btn.disabled=false; btn.textContent=_ot; showMsg('Hata','Sunucuya ula\u015f\u0131lamad\u0131: '+((e&&e.message)||e)); }
       };
     });
