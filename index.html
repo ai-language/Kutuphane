@@ -667,6 +667,7 @@
   <div class="hub-tools">
     <button id="_hub_install_btn" class="hub-tool" onclick="_hubInstallPWA()" style="display:none">📲 Ana Ekrana</button>
     <button id="_sw_tog" class="hub-tool admin-only" onclick="_swToggle()" title="Medya açılış modu: Blob / SW — DEĞİŞİKLİK TÜM KULLANICILARA uygulanır (admin şifresi sunucu doğrular)">⚙ Açılış: Blob</button><!-- __SW_GLOBAL__: admin-only + KV ortak ayar; cihaz-yerel bozulma ağı herkes için aynen aktif -->
+    <button class="hub-tool" onclick="_guideOpen()" title="Kullanım rehberi — tüm jestler ve butonlar (kişiye özel kodla açılır)">📖 Rehber</button><!-- __GUIDE__ -->
     <button class="hub-tool" onclick="showKeyModal()">🔑</button>
     <button class="hub-tool admin-only" onclick="showTagger()">🏷 Etiketle</button>
     <button class="hub-tool admin-only" onclick="genManifest()">📋 Manifest üret</button>
@@ -8470,7 +8471,7 @@ async function _markUploaded(localKeys){
   var lib=currentLib, names=_srvNames[lib];
   if(!names){
     var en=false; try{ var _f=(curView()||document).querySelector('.item-title'); if(_f && (_f.dataset.id||'').indexOf('item_en_')===0) en=true; }catch(e){}
-    var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=list&k='+encodeURIComponent(_key)+'&dev='+encodeURIComponent(_devId())+(en?'&en=1':'');
+    var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=list&k='+encodeURIComponent(_key)+'&dev='+encodeURIComponent(_devId())+(en?'&en=1':'')+'&lib='+encodeURIComponent(currentLib); /* __TAGS6__: worker lib→Release-tag eşler (media/media-2..6); eski worker lib'i yok sayar=geri-uyum */
     try{
       var ctl=('AbortController' in window)?new AbortController():null;
       var tm=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},6000):null;
@@ -8795,6 +8796,56 @@ async function _sumOpen(id,sid,no,tot){
       o.querySelector('#_sm_cx').onclick=function(){ closeModal(o); };
       o.querySelector('#_sm_dl').onclick=function(){ _sumDl(new Blob([txt],{type:'text/plain;charset=utf-8'}),title.replace(/[\\/:*?"<>|]/g,'_')+' - ozet'+(tot>1?(' '+no):'')+'.txt'); };
       var ed=o.querySelector('#_sm_ed'); if(ed) ed.onclick=function(){ closeModal(o); _sumEdit(id,sid,txt); };
+    });
+}
+/* __GUIDE__ v1 (2026-07-18): hub 📖 Kullanım Rehberi — __SUM__ altyapısının SABİT anahtarla (lib='hub', id='rehber') kullanımı.
+   Sıfır worker değişikliği (mode=sum/setsum lib adını zaten kabul eder). Okuma=kişiye özel kod (aynı kapı) + cache=offline;
+   admin boşken 📖'e basınca direkt editör (ekle), doluyken okuyucu+✏️; boş kaydet=rehberi kaldır. */
+async function _guideOpen(){
+  var adm=document.body.classList.contains('admin');
+  var txt=await _sumGetTxt('hub','rehber');
+  if(txt==='__DENIED__'){ await showMsg('Kod Gerekli','Rehber, içerik indirmedeki <b>kişiye özel kodla</b> açılır. Kodunu gir — sonra 📖\'e tekrar bas.'); showKeyModal(); return; }
+  if(!txt){ if(adm)_guideEdit(''); else showMsg('Rehber Yok','Kullanım rehberi henüz eklenmemiş.'); return; }
+  showModal('<h3 style="padding-right:20px">📖 Kullanım Rehberi</h3>'
+    +'<div class="sum-view">'+_biEsc(txt)+'</div>'
+    +'<div class="modal-btns"><button class="btn-primary" id="_gd_dl">📥 TXT indir</button>'+(adm?'<button class="btn-secondary" id="_gd_ed">✏️ Düzenle</button>':'')+'<button class="btn-secondary" id="_gd_cx">Kapat</button></div>',
+    function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('#_gd_cx').onclick=function(){ closeModal(o); };
+      o.querySelector('#_gd_dl').onclick=function(){ _sumDl(new Blob([txt],{type:'text/plain;charset=utf-8'}),'Kullanim Rehberi.txt'); };
+      var ed=o.querySelector('#_gd_ed'); if(ed) ed.onclick=function(){ closeModal(o); _guideEdit(txt); };
+    });
+}
+function _guideEdit(pre){
+  if(!_verLive()){ showMsg('Sunucu Yok','Rehber sunucuya (KV) kaydedilir; yalnız canlı modda.'); return; }
+  showModal('<h3 style="padding-right:20px">✏️ Kullanım Rehberi</h3>'
+    +'<p style="font-size:.78rem;color:#718096;margin:4px 0 8px;line-height:1.5">Düz metin yapıştır veya TXT yükle (≤120KB). Kaydedince <b>tüm kullanıcılar</b> hub\'daki 📖 ile okur/indirir. Boş kaydet = rehberi kaldır.</p>'
+    +'<input type="file" id="_gd_f" accept=".txt,text/plain" style="margin-bottom:8px;font-size:.8rem;max-width:100%">'
+    +'<textarea id="_gd_t" style="width:100%;min-height:240px;max-height:56vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
+    +'<div class="modal-btns" style="margin-top:10px"><button class="btn-primary" id="_gd_sv">🔒 Kaydet (admin şifresi)</button><button class="btn-secondary" id="_gd_cx">İptal</button></div>',
+    function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big');
+      var ta=o.querySelector('#_gd_t'); ta.value=pre||'';
+      o.querySelector('#_gd_cx').onclick=function(){ closeModal(o); };
+      o.querySelector('#_gd_f').addEventListener('change',function(){
+        var f=this.files&&this.files[0]; if(!f) return;
+        var rd=new FileReader(); rd.onload=function(){ ta.value=String(rd.result||''); }; rd.readAsText(f);
+      });
+      o.querySelector('#_gd_sv').onclick=async function(){
+        var txt=ta.value||'';
+        var pass=prompt('Admin şifresi — rehber '+(txt.trim()?'yayınlanacak':'KALDIRILACAK')+' (tüm kullanıcılara):'); if(pass===null) return; pass=pass.trim(); if(!pass) return;
+        var btn=this,_ot=btn.textContent; btn.disabled=true; btn.textContent='Kaydediliyor…';
+        try{
+          var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=setsum&lib=hub&id=rehber&a='+encodeURIComponent(pass);
+          var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({txt:txt}),cache:'no-store'});
+          if(r.status===403){ btn.disabled=false; btn.textContent=_ot; showMsg('Reddedildi','Admin şifresi yanlış.'); return; }
+          if(r.status===413){ btn.disabled=false; btn.textContent=_ot; showMsg('Çok Büyük','Metin 120KB sınırını aşıyor — kısalt.'); return; }
+          if(!r.ok) throw new Error('HTTP '+r.status);
+          try{ if(txt.trim()) localStorage.setItem(_sumCacheKey('hub','rehber'),txt); else localStorage.removeItem(_sumCacheKey('hub','rehber')); }catch(e){}
+          closeModal(o);
+          showMsg(txt.trim()?'Yayında':'Kaldırıldı', txt.trim()?'Rehber yayında — hub\'daki 📖 ile herkes okuyabilir/indirebilir.':'Rehber kaldırıldı.');
+        }catch(e){ btn.disabled=false; btn.textContent=_ot; showMsg('Hata','Sunucuya ulaşılamadı: '+((e&&e.message)||e)); }
+      };
     });
 }
 function _sumEdit(id,sid,pre){
