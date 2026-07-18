@@ -160,7 +160,7 @@
   .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0); }
   
   /* Sync Modal */
-  .sync-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px; }
+  .sync-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,14,24,0.34);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px)); } /* __MODAL_TONE__ (2026-07-18): opak siyah yerine yarı-saydam + blur → arka plan (hub/kütüphane tonu) üstten alta TEK renk sızar, iPhone'da alt-şerit uyumsuzluğu biter; safe-area alt dolgusu */
   .sync-modal { background:white;border-radius:14px;padding:22px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3); }
   .sync-modal h3 { color:var(--lib-c);margin-bottom:10px;font-size:1.05rem; }
   .sync-modal p { font-size:0.82rem;color:#666;margin-bottom:10px;line-height:1.4; }
@@ -667,6 +667,7 @@
   <div class="hub-tools">
     <button id="_hub_install_btn" class="hub-tool" onclick="_hubInstallPWA()" style="display:none">📲 Ana Ekrana</button>
     <button id="_sw_tog" class="hub-tool admin-only" onclick="_swToggle()" title="Medya açılış modu: Blob / SW — DEĞİŞİKLİK TÜM KULLANICILARA uygulanır (admin şifresi sunucu doğrular)">⚙ Açılış: Blob</button><!-- __SW_GLOBAL__: admin-only + KV ortak ayar; cihaz-yerel bozulma ağı herkes için aynen aktif -->
+    <button class="hub-tool" id="_ann_btn" onclick="_annOpen()" style="display:none" title="Duyurular">📢 Duyurular</button><!-- __ANN__ -->
     <button class="hub-tool" onclick="_guideOpen()" title="Kullanım rehberi — tüm jestler ve butonlar (kişiye özel kodla açılır)">📖 Rehber</button><!-- __GUIDE__ -->
     <button class="hub-tool" onclick="showKeyModal()">🔑</button>
     <button class="hub-tool admin-only" onclick="showTagger()">🏷 Etiketle</button>
@@ -8798,6 +8799,78 @@ async function _sumOpen(id,sid,no,tot){
       var ed=o.querySelector('#_sm_ed'); if(ed) ed.onclick=function(){ closeModal(o); _sumEdit(id,sid,txt); };
     });
 }
+/* __ANN__ v1 (2026-07-18): hub 📢 DUYURULAR — worker mode=ann(public oku)/setann(admin yaz). İLK açılışta YENİ duyuru otomatik açılır (ts karşılaştırması: ann_seen<ts → aç, kapatınca ann_seen=ts → tekrar açılmaz; güncellersen ts değişir → tek sefer daha açılır). İçi boşsa buton GİZLİ (admin hariç). Okuma PUBLIC (welcome yeterli, kişiye özel kod GEREKMEZ). */
+var _annTxt='',_annTs=0,_annFetched=false;
+function _annPaint(){ var b=document.getElementById('_ann_btn'); if(!b)return; var adm=document.body.classList.contains('admin'); b.style.display=(_annTxt||adm)?'':'none'; }
+async function _annFetch(){
+  try{ _annTxt=localStorage.getItem('ann_cache')||''; _annTs=parseInt(localStorage.getItem('ann_ts')||'0',10)||0; }catch(e){}  /* önce cache (offline) */
+  _annPaint();
+  if(!_verLive()||navigator.onLine===false) return;
+  try{
+    var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=ann',{cache:'no-store'});
+    if(!r.ok) return; var j=await r.json(); if(!j||!j.ok) return;
+    _annFetched=true; _annTxt=j.txt||''; _annTs=j.ts||0;
+    try{ if(_annTxt){ localStorage.setItem('ann_cache',_annTxt); localStorage.setItem('ann_ts',String(_annTs)); } else { localStorage.removeItem('ann_cache'); localStorage.removeItem('ann_ts'); } }catch(e){}
+    _annPaint();
+  }catch(e){}
+}
+function _annShow(){
+  var adm=document.body.classList.contains('admin');
+  try{ if(_annTs) localStorage.setItem('ann_seen',String(_annTs)); }catch(e){}  /* açılınca "görüldü" işaretle → otomatik tekrar açılmaz */
+  showModal('<h3 style="padding-right:20px">📢 Duyurular</h3>'
+    +'<div class="sum-view">'+_biEsc(_annTxt)+'</div>'
+    +'<div class="modal-btns"><button class="btn-primary" id="_an_cx">Kapat</button>'+(adm?'<button class="btn-secondary" id="_an_ed">✏️ Düzenle</button>':'')+'</div>',
+    function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('#_an_cx').onclick=function(){ closeModal(o); };
+      var ed=o.querySelector('#_an_ed'); if(ed) ed.onclick=function(){ closeModal(o); _annEdit(_annTxt); };
+    });
+}
+async function _annOpen(){
+  var adm=document.body.classList.contains('admin');
+  if(!_annFetched) await _annFetch();
+  if(!_annTxt){ if(adm)_annEdit(''); else showMsg('Duyuru Yok','Şu an aktif bir duyuru yok.'); return; }
+  _annShow();
+}
+function _annEdit(pre){
+  if(!_verLive()){ showMsg('Sunucu Yok','Duyuru sunucuya (KV) kaydedilir; yalnız canlı modda.'); return; }
+  showModal('<h3 style="padding-right:20px">✏️ Duyuru</h3>'
+    +'<p style="font-size:.78rem;color:#718096;margin:4px 0 8px;line-height:1.5">Kaydedince <b>tüm kullanıcıların İLK açılışında</b> bir kez ekrana gelir; kapatınca yeni duyuruya kadar açılmaz. 📢 ile her zaman tekrar açılır. Boş kaydet = duyuruyu kaldır (buton gizlenir).</p>'
+    +'<textarea id="_an_t" style="width:100%;min-height:200px;max-height:52vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
+    +'<div class="modal-btns" style="margin-top:10px"><button class="btn-primary" id="_an_sv">🔒 Kaydet (admin şifresi)</button><button class="btn-secondary" id="_an_cx">İptal</button></div>',
+    function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big');
+      var ta=o.querySelector('#_an_t'); ta.value=pre||'';
+      o.querySelector('#_an_cx').onclick=function(){ closeModal(o); };
+      o.querySelector('#_an_sv').onclick=async function(){
+        var txt=ta.value||'';
+        var pass=prompt('Admin şifresi — duyuru '+(txt.trim()?'yayınlanacak':'KALDIRILACAK')+' (tüm kullanıcılara):'); if(pass===null) return; pass=pass.trim(); if(!pass) return;
+        var btn=this,_ot=btn.textContent; btn.disabled=true; btn.textContent='Kaydediliyor…';
+        try{
+          var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=setann&a='+encodeURIComponent(pass);
+          var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({txt:txt}),cache:'no-store'});
+          if(r.status===403){ btn.disabled=false; btn.textContent=_ot; showMsg('Reddedildi','Admin şifresi yanlış.'); return; }
+          if(r.status===413){ btn.disabled=false; btn.textContent=_ot; showMsg('Çok Büyük','Metin 40KB sınırını aşıyor — kısalt.'); return; }
+          if(!r.ok) throw new Error('HTTP '+r.status);
+          var j=await r.json();
+          _annTxt=txt.trim(); _annTs=(j&&j.ts)||Date.now(); _annFetched=true;
+          try{ if(_annTxt){ localStorage.setItem('ann_cache',_annTxt); localStorage.setItem('ann_ts',String(_annTs)); localStorage.setItem('ann_seen',String(_annTs)); } else { localStorage.removeItem('ann_cache'); localStorage.removeItem('ann_ts'); } }catch(e){}
+          _annPaint();
+          closeModal(o);
+          showMsg(txt.trim()?'Yayında':'Kaldırıldı', txt.trim()?'Duyuru yayında — kullanıcıların ilk açılışında görünecek.':'Duyuru kaldırıldı.');
+        }catch(e){ btn.disabled=false; btn.textContent=_ot; showMsg('Hata','Sunucuya ulaşılamadı: '+((e&&e.message)||e)); }
+      };
+    });
+}
+/* İlk açılış otomatik gösterimi: hub geçildiyse (welcome-ok) + YENİ duyuru varsa bir kez aç. */
+async function _annBoot(){
+  var ok=false; try{ ok=localStorage.getItem('lib_welcome_ok')==='1'; }catch(e){}
+  if(!ok && (typeof LIB_AUTH_URL==='string' && LIB_AUTH_URL.indexOf('HESABIN')<0 && /^https?:/.test(LIB_AUTH_URL))) return; /* kapı geçilmedi → duyuru bekler */
+  await _annFetch();
+  if(!_annTxt||!_annTs) return;
+  var seen=0; try{ seen=parseInt(localStorage.getItem('ann_seen')||'0',10)||0; }catch(e){}
+  if(_annTs>seen && !document.querySelector('.sync-overlay')) _annShow();  /* açık bir modal yoksa (kod kapısı vb.) otomatik aç */
+}
 /* __GUIDE__ v1 (2026-07-18): hub 📖 Kullanım Rehberi — __SUM__ altyapısının SABİT anahtarla (lib='hub', id='rehber') kullanımı.
    Sıfır worker değişikliği (mode=sum/setsum lib adını zaten kabul eder). Okuma=kişiye özel kod (aynı kapı) + cache=offline;
    admin boşken 📖'e basınca direkt editör (ekle), doluyken okuyucu+✏️; boş kaydet=rehberi kaldır. */
@@ -9572,7 +9645,7 @@ function showKeyModal(){
         if(rc.ok){ try{localStorage.setItem('lib_dl_key',v);}catch(e){} closeModal(o); loadMediaState(); showMsg('Kaydedildi','İndirme kodu doğrulandı ve bu cihaza kaydedildi.'); return; }
         // 2) yönetici parolası mı?
         var ra=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=admin&a='+encodeURIComponent(v),{cache:'no-store'});
-        if(ra.ok){ document.body.classList.add('admin'); try{localStorage.setItem('lib_admin','1');}catch(e){} try{_sumApply();loadMediaState();}catch(e){} closeModal(o); showMsg('Yönetici Modu','Sunucu doğruladı — araçlar bu cihazda açıldı.'); return; } /* __SUM__: admin açılınca 📄+ butonları anında belirsin */
+        if(ra.ok){ document.body.classList.add('admin'); try{localStorage.setItem('lib_admin','1');}catch(e){} try{_sumApply();loadMediaState();_annPaint();}catch(e){} closeModal(o); showMsg('Yönetici Modu','Sunucu doğruladı — araçlar bu cihazda açıldı.'); return; } /* __SUM__+__ANN__: admin açılınca 📄+ ve 📢 butonları anında belirsin */
         if(msg)msg.textContent='Geçersiz kod veya parola.'; btn.disabled=false;
       }catch(e){ if(msg)msg.textContent='Sunucuya ulaşılamadı.'; btn.disabled=false; }
     };
@@ -10106,6 +10179,7 @@ async function _swCfgSync(){
   }catch(e){}
 }
 setTimeout(_swCfgSync,1200);
+setTimeout(function(){ try{ _annBoot(); }catch(e){} },1400); /* __ANN__: ilk açılış otomatik duyuru (kapı geçildiyse + yeni duyuru varsa) */
 setTimeout(function(){ try{ _biDynLibs().forEach(function(l){ _biLoadTitles(l); }); }catch(e){} },1600); /* __BI_TITLES__: açılışta da yükle → BI'ye hiç girilmeden 📋 Manifest üret/genel akışlar dinamik başlıkları görür (görünüm pasifken de DOM'a render edilir; _biAfterRender yalnız aktif görünümde koşar) */
 /* SW cache'e koy + gerçek adrese git. HER hata → false (çağıran blob yoluna düşer).
    Depo şişmesin: cache'te YALNIZ son açılan medya tutulur (her açılışta IDB'den taze konur). */
