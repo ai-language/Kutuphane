@@ -161,6 +161,12 @@
   
   /* Sync Modal */
   .sync-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,14,24,0.34);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px)); } /* __MODAL_TONE__ (2026-07-18): opak siyah yerine yarı-saydam + blur → arka plan (hub/kütüphane tonu) üstten alta TEK renk sızar, iPhone'da alt-şerit uyumsuzluğu biter; safe-area alt dolgusu */
+  .sync-overlay.bg-clear{ background:rgba(0,0,0,0.14); -webkit-backdrop-filter:none; backdrop-filter:none; } /* __MODAL_BG__ (2026-07-19): "Şeffaf" — blur YOK, perde çok hafif → arka plan NET görünür. localStorage modal_bg='clear'. */
+  /* __MODAL_BG__ küçük segment toggle (kocaman düğme değil): sağa-sola iki minik segment */
+  .sum-bgtog{ display:inline-flex; border:1px solid rgba(128,128,128,.3); border-radius:999px; overflow:hidden; }
+  .sum-bgtog button{ border:none; background:transparent; cursor:pointer; font-size:.78rem; line-height:1; padding:4px 10px; opacity:.5; -webkit-tap-highlight-color:transparent; }
+  .sum-bgtog button.on{ background:var(--lib-c); opacity:1; }
+  html[data-theme="dark"] .sum-bgtog{ border-color:rgba(255,255,255,.18); }
   .sync-modal { background:white;border-radius:14px;padding:22px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3); }
   .sync-modal h3 { color:var(--lib-c);margin-bottom:10px;font-size:1.05rem; }
   .sync-modal p { font-size:0.82rem;color:#666;margin-bottom:10px;line-height:1.4; }
@@ -8791,9 +8797,14 @@ async function _sumOpen(id,sid,no,tot){
   var adm=document.body.classList.contains('admin');
   showModal('<h3 style="padding-right:20px">\ud83d\udcc4 '+_biEsc(title)+_biEsc(ptag)+'</h3>'
     +'<div class="sum-view">'+_biEsc(txt)+'</div>'
+    +'<div style="display:flex;justify-content:flex-end;margin:-2px 0 8px"><span class="sum-bgtog" id="_sm_bg"><button type="button" data-v="blur" title="Buzlu cam arka plan">\ud83e\udee7</button><button type="button" data-v="clear" title="\u015eeffaf \u2014 arka plan g\u00f6r\u00fcn\u00fcr">\ud83d\udc41</button></span></div>'
     +'<div class="modal-btns"><button class="btn-primary" id="_sm_dl">\ud83d\udce5 TXT indir</button>'+(adm?'<button class="btn-secondary" id="_sm_ed">\u270f\ufe0f D\u00fczenle</button>':'')+'<button class="btn-secondary" id="_sm_cx">Kapat</button></div>',
     function(o){
       o.querySelector('.sync-modal').classList.add('sum-big'); /* __SUM__ v2: B\u00dcY\u00dcK okuyucu (iPhone tam-geni\u015flik, masa\u00fcst\u00fc ~980px) + gece modu CSS'i */
+      /* __MODAL_BG__: minik sa\u011fa-sola segment (\ud83e\udee7 buzlu / \ud83d\udc41 \u015feffaf) \u2014 tercih t\u00fcm modallara ge\u00e7erli */
+      var _bgw=o.querySelector('#_sm_bg');
+      if(_bgw){ var _bgU=function(){ var clr=o.classList.contains('bg-clear'); Array.prototype.forEach.call(_bgw.querySelectorAll('button'),function(b){ b.classList.toggle('on',(b.dataset.v==='clear')===clr); }); }; _bgU();
+        Array.prototype.forEach.call(_bgw.querySelectorAll('button'),function(b){ b.onclick=function(ev){ ev.stopPropagation(); var clr=b.dataset.v==='clear'; o.classList.toggle('bg-clear',clr); try{localStorage.setItem('modal_bg',clr?'clear':'blur');}catch(e){} _bgU(); }; }); }
       o.querySelector('#_sm_cx').onclick=function(){ closeModal(o); };
       o.querySelector('#_sm_dl').onclick=function(){ _sumDl(new Blob([txt],{type:'text/plain;charset=utf-8'}),title.replace(/[\\/:*?"<>|]/g,'_')+' - ozet'+(tot>1?(' '+no):'')+'.txt'); };
       var ed=o.querySelector('#_sm_ed'); if(ed) ed.onclick=function(){ closeModal(o); _sumEdit(id,sid,txt); };
@@ -9599,6 +9610,7 @@ function loadState() {
 
 function showModal(html,onReady) {
   var ov=document.createElement('div'); ov.className='sync-overlay';
+  try{ if(localStorage.getItem('modal_bg')==='clear') ov.classList.add('bg-clear'); }catch(e){} /* __MODAL_BG__: kayıtlı arka plan tercihi (buzlu/şeffaf) tüm modallara uygulanır */
   ov.innerHTML='<div class="sync-modal">'+html+'</div>';
   document.body.appendChild(ov);
   ov.addEventListener('click',e=>{if(e.target===ov)closeModal(ov);});
