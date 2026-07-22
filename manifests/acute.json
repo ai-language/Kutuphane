@@ -1,8 +1,128 @@
 {
-  "version": 1,
-  "note": "Het Acute Boekje icin sunucu indirme haritasi. Icerik (basliklar) sonraki adimda eklenecek; o zaman item ID'leri burada kullanilacak. Bos = no-op.",
-  "_example": {
-    "aitem_0_0_0": { "url": "https://ornek-host2.netlify.app/acute-buikpijn.html", "size": 20120000 }
-  },
-  "items": {}
+  "items": {
+    "item_ac_0": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_0",
+      "size": 0
+    },
+    "item_ac_1": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_1",
+      "size": 0
+    },
+    "item_ac_2": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_2",
+      "size": 0
+    },
+    "item_ac_3": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_3",
+      "size": 0
+    },
+    "item_ac_4": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_4",
+      "size": 0
+    },
+    "item_ac_5": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_5",
+      "size": 0
+    },
+    "item_ac_6": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_6",
+      "size": 0
+    },
+    "item_ac_7": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_7",
+      "size": 0
+    },
+    "item_ac_8": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_8",
+      "size": 0
+    },
+    "item_ac_9": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_9",
+      "size": 0
+    },
+    "item_ac_10": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_10",
+      "size": 0
+    },
+    "item_ac_11": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_11",
+      "size": 0
+    },
+    "item_ac_12": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_12",
+      "size": 0
+    },
+    "item_ac_13": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_13",
+      "size": 0
+    },
+    "item_ac_14": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_14",
+      "size": 0
+    },
+    "item_ac_15": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_15",
+      "size": 0
+    },
+    "item_ac_16": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_16",
+      "size": 0
+    },
+    "item_ac_17": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_17",
+      "size": 0
+    },
+    "item_ac_18": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_18",
+      "size": 0
+    },
+    "item_ac_19": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_19",
+      "size": 0
+    },
+    "item_ac_20": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_20",
+      "size": 0
+    },
+    "item_ac_21": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_21",
+      "size": 0
+    },
+    "item_ac_22": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_22",
+      "size": 0
+    },
+    "item_ac_23": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_23",
+      "size": 0
+    },
+    "item_ac_24": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_24",
+      "size": 0
+    },
+    "item_ac_25": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_25",
+      "size": 0
+    },
+    "item_ac_26": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_26",
+      "size": 0
+    },
+    "item_ac_27": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_27",
+      "size": 0
+    },
+    "item_ac_28": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_28",
+      "size": 0
+    },
+    "item_ac_29": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_29",
+      "size": 0
+    },
+    "item_ac_30": {
+      "url": "https://kutuphane.toptaallanguage.workers.dev/?id=item_ac_30",
+      "size": 0
+    }
+  }
 }
