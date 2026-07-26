@@ -675,6 +675,8 @@
     <button id="_sw_tog" class="hub-tool admin-only" onclick="_swToggle()" title="Medya açılış modu: Blob / SW — DEĞİŞİKLİK TÜM KULLANICILARA uygulanır (admin şifresi sunucu doğrular)">⚙ Açılış: Blob</button><!-- __SW_GLOBAL__: admin-only + KV ortak ayar; cihaz-yerel bozulma ağı herkes için aynen aktif -->
     <button class="hub-tool" id="_ann_btn" onclick="_annOpen()" style="display:none" title="Duyurular">📢 Duyurular</button><!-- __ANN__ -->
     <button class="hub-tool" onclick="_guideOpen()" title="Kullanım rehberi — tüm jestler ve butonlar (kişiye özel kodla açılır)">📖 Rehber</button><!-- __GUIDE__ -->
+    <button class="hub-tool" onclick="_myNoteOpen()" title="Notlarım — bu cihaza özel, şifresiz kişisel not defteri. Sunucuya GİTMEZ, kimse göremez. Sync Kodu ile diğer cihazına taşınır.">🗒 Notlarım</button><!-- __MYNOTE__ -->
+    <button class="hub-tool admin-only" onclick="_noteOpen()" title="Yönetici notu — sunucuda (KV) saklanır, açmak da düzenlemek de admin şifresi ister. Yalnız sen görürsün.">📝 Not</button><!-- __NOTE__ -->
     <button class="hub-tool" onclick="showKeyModal()">🔑</button>
     <button class="hub-tool admin-only" onclick="showTagger()">🏷 Etiketle</button>
     <button class="hub-tool admin-only" onclick="genManifest()">📋 Manifest üret</button>
@@ -8882,6 +8884,118 @@ async function _annBoot(){
   var seen=0; try{ seen=parseInt(localStorage.getItem('ann_seen')||'0',10)||0; }catch(e){}
   if(_annTs>seen && !document.querySelector('.sync-overlay')) _annShow();  /* açık bir modal yoksa (kod kapısı vb.) otomatik aç */
 }
+/* ============ __NOTE__ v1 (2026-07-24): 📝 YÖNETİCİ NOTU — hub, admin-only, SUNUCUDA (KV) ============
+   __ANN__ ikizi ama İKİ FARKI var: (1) okuma da admin-kapılı (worker mode=note şifresiz 403 döner, içerik
+   gövdeye HİÇ konmaz); (2) cihazda ÖNBELLEK TUTULMAZ — her açılışta şifreyle taze çekilir, çıkınca bellekten
+   silinir. Düzenlemede şifre TEKRAR sorulur (kullanıcı isteği). Sunucuda durduğu için sync'e gerek yok:
+   hangi cihazdan girersen gir, şifreyle aynı notu görürsün.
+   ⚠️ worker.js'e mode=note / mode=setnote eklendi → WORKER REDEPLOY ŞART. */
+function _noteUrl(m,pass){ return LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode='+m+'&a='+encodeURIComponent(pass); }
+async function _noteOpen(){
+  if(typeof _verLive!=='function'||!_verLive()){ showMsg('Sunucu Yok','Yönetici notu sunucuda (KV) saklanır; yalnız canlı (Worker) modda açılır.'); return; }
+  var pass=prompt('Admin şifresi (not sunucudan çekilir):'); if(pass===null)return; pass=pass.trim(); if(!pass)return;
+  var ov=_showProg('Not alınıyor...',30);
+  try{
+    var r=await fetch(_noteUrl('note',pass),{cache:'no-store'});
+    _closeOv(ov);
+    if(r.status===403){ showMsg('Reddedildi','Admin şifresi yanlış.'); return; }
+    if(r.status===429){ showMsg('Çok Fazla Deneme','Arka arkaya hatalı şifre girildi — bir süre bekleyip tekrar dene.'); return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var j=await r.json();
+    _noteShow((j&&j.txt)||'');
+  }catch(e){ _closeOv(ov); showMsg('Hata','Not alınamadı: '+((e&&e.message)||e)); }
+}
+function _noteShow(txt){
+  showModal('<h3 style="padding-right:20px">📝 Not <span style="font-size:.72rem;font-weight:600;opacity:.65">(yalnız yönetici)</span></h3>'
+    +'<div class="sum-view">'+(txt?_biEsc(txt):'<span style="opacity:.55">(boş — ✏️ Düzenle ile not ekle)</span>')+'</div>'
+    +'<div class="modal-btns"><button class="btn-primary" id="_nt_cx">Kapat</button><button class="btn-secondary" id="_nt_ed">✏️ Düzenle</button></div>',
+    function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('#_nt_cx').onclick=function(){ closeModal(o); };
+      o.querySelector('#_nt_ed').onclick=function(){ closeModal(o); _noteEdit(txt); };
+    });
+}
+function _noteEdit(pre){
+  showModal('<h3 style="padding-right:20px">✏️ Not</h3>'
+    +'<p style="font-size:.78rem;color:#718096;margin:4px 0 8px;line-height:1.5">Sunucuda saklanır — her cihazdan admin şifresiyle aynı notu görürsün. Kimseye görünmez. Boş kaydet = notu sil.</p>'
+    +'<textarea id="_nt_t" style="width:100%;min-height:240px;max-height:52vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
+    +'<div class="modal-btns" style="margin-top:10px"><button class="btn-primary" id="_nt_sv">🔒 Kaydet (admin şifresi)</button><button class="btn-secondary" id="_nt_cx2">İptal</button></div>',
+    function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big');
+      var ta=o.querySelector('#_nt_t'); ta.value=pre||'';
+      o.querySelector('#_nt_cx2').onclick=function(){ closeModal(o); };
+      o.querySelector('#_nt_sv').onclick=async function(){
+        var txt=ta.value||'';
+        var pass=prompt('Admin şifresi — not '+(txt.trim()?'kaydedilecek':'SİLİNECEK')+':'); if(pass===null) return; pass=pass.trim(); if(!pass) return;
+        var btn=this,_ot=btn.textContent; btn.disabled=true; btn.textContent='Kaydediliyor…';
+        try{
+          var r=await fetch(_noteUrl('setnote',pass),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({txt:txt}),cache:'no-store'});
+          if(r.status===403){ btn.disabled=false; btn.textContent=_ot; showMsg('Reddedildi','Admin şifresi yanlış — not DEĞİŞMEDİ.'); return; }
+          if(r.status===413){ btn.disabled=false; btn.textContent=_ot; showMsg('Çok Büyük','Metin 120KB sınırını aşıyor — kısalt.'); return; }
+          if(r.status===429){ btn.disabled=false; btn.textContent=_ot; showMsg('Çok Fazla Deneme','Arka arkaya hatalı şifre girildi — bir süre bekle.'); return; }
+          if(!r.ok) throw new Error('HTTP '+r.status);
+          closeModal(o);
+          showMsg(txt.trim()?'Kaydedildi':'Silindi', txt.trim()?'Not sunucuya kaydedildi.':'Not silindi.');
+        }catch(e){ btn.disabled=false; btn.textContent=_ot; showMsg('Hata','Sunucuya ulaşılamadı — not DEĞİŞMEDİ: '+((e&&e.message)||e)); }
+      };
+    });
+}
+
+/* ============ __MYNOTE__ v1 (2026-07-24): 🗒 NOTLARIM — herkese açık, TAMAMEN YEREL ============
+   localStorage 'lib_mynote'. Şifre YOK, sunucuya HİÇ gitmez, kimse göremez. Sync Kodu ile taşınır.
+   ⚠️ SYNC GERİ-UYUMU: sürüm v3'te KALDI (v4 yapılmadı!) — eski sürüm `obj.v===2||obj.v===3` kontrolü
+   yaptığı için v4 kodu REDDEDİLİRDİ. Bunun yerine v3'e opsiyonel `note` alanı eklendi: eski sürüm
+   bilmediği alanı yok sayar, yeni sürüm okur. Not BOŞSA alan hiç eklenmez → kod BAYT-AYNI kalır. */
+var MYNOTE_KEY='lib_mynote';
+function _myNoteGet(){ try{ return localStorage.getItem(MYNOTE_KEY)||''; }catch(e){ return ''; } }
+function _myNoteSet(t){ try{ if((t||'').trim()) localStorage.setItem(MYNOTE_KEY,t); else localStorage.removeItem(MYNOTE_KEY); }catch(e){} }
+function _myNoteOpen(){
+  var cur0=_myNoteGet();
+  showModal('<h3 style="padding-right:20px">🗒 Notlarım</h3>'
+    +'<p style="font-size:.78rem;color:#718096;margin:4px 0 8px;line-height:1.5">Yalnız <b>bu cihazda</b> saklanır — sunucuya gitmez, kimse göremez. Diğer cihazına taşımak için <b>📋 Sync Kodu</b> kullan.</p>'
+    +'<textarea id="_mn_t" placeholder="Notlarını buraya yaz…" style="width:100%;min-height:240px;max-height:52vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
+    +'<div id="_mn_st" style="font-size:.72rem;color:#94a3b8;margin-top:6px;min-height:1em"></div>'
+    +'<div class="modal-btns" style="margin-top:8px"><button class="btn-primary" id="_mn_sv">💾 Kaydet</button><button class="btn-secondary" id="_mn_cx">Kapat</button></div>',
+    function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big');
+      var ta=o.querySelector('#_mn_t'), st=o.querySelector('#_mn_st');
+      ta.value=cur0;
+      var _dirty=false;
+      ta.addEventListener('input',function(){ _dirty=(ta.value!==cur0); st.textContent=_dirty?'● kaydedilmedi':''; });
+      o.querySelector('#_mn_sv').onclick=function(){
+        _myNoteSet(ta.value); cur0=ta.value; _dirty=false;
+        st.textContent='✓ kaydedildi'; setTimeout(function(){ if(st)st.textContent=''; },1800);
+      };
+      o.querySelector('#_mn_cx').onclick=function(){
+        if(_dirty && !confirm('Kaydedilmemiş değişiklik var — yine de kapatılsın mı?')) return; /* yazdığını kazara kaybetme */
+        closeModal(o);
+      };
+    });
+}
+
+/* __MYNOTE__ çakışma: bu cihazda not VAR ve gelenden FARKLI → kullanıcı seçer. Varsayılan öneri BİRLEŞTİR
+   (hiçbir metin kaybolmaz). Sync'in eski davranışı değişmedi: not yoksa/aynıysa bu ekran hiç çıkmaz. */
+function _myNoteConflict(inc, loc, baseMsg){
+  var _pv=function(t){ var s=(t+'').trim(); return _biEsc(s.length>220?s.slice(0,220)+'…':s).replace(/\n/g,'<br>'); };
+  showModal('<h3 style="padding-right:20px">🗒 Notlar çakıştı</h3>'
+    +'<p style="font-size:.78rem;color:#718096;margin:4px 0 10px;line-height:1.5">'+_biEsc(baseMsg)+'<br><br>Bu cihazda zaten bir <b>Notlarım</b> var ve gelen notla aynı değil. Ne yapılsın?</p>'
+    +'<div style="font-size:.72rem;color:#94a3b8;margin-bottom:3px">BU CİHAZDAKİ</div>'
+    +'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:.78rem;line-height:1.5;max-height:100px;overflow:auto;margin-bottom:8px">'+_pv(loc)+'</div>'
+    +'<div style="font-size:.72rem;color:#94a3b8;margin-bottom:3px">GELEN</div>'
+    +'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:.78rem;line-height:1.5;max-height:100px;overflow:auto;margin-bottom:12px">'+_pv(inc)+'</div>'
+    +'<div class="modal-btns" style="flex-direction:column;gap:7px">'
+    +'<button class="btn-primary" id="_mnc_mg">➕ İkisini birleştir (hiçbir şey kaybolmaz)</button>'
+    +'<button class="btn-secondary" id="_mnc_rp">↻ Gelenle değiştir</button>'
+    +'<button class="btn-secondary" id="_mnc_kp">✋ Bu cihazdakini koru</button>'
+    +'</div>',
+    function(o){
+      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('#_mnc_mg').onclick=function(){ _myNoteSet(loc+'\n\n--- (sync ile gelen) ---\n\n'+inc); closeModal(o); showMsg('Birleştirildi','Notların birleştirildi — 🗒 Notlarım\'dan düzenleyebilirsin.'); };
+      o.querySelector('#_mnc_rp').onclick=function(){ _myNoteSet(inc); closeModal(o); showMsg('Değiştirildi','Notların gelen notla değiştirildi.'); };
+      o.querySelector('#_mnc_kp').onclick=function(){ closeModal(o); showMsg('Korundu','Bu cihazdaki notların değişmedi.'); };
+    });
+}
+
 /* __GUIDE__ v1 (2026-07-18): hub 📖 Kullanım Rehberi — __SUM__ altyapısının SABİT anahtarla (lib='hub', id='rehber') kullanımı.
    Sıfır worker değişikliği (mode=sum/setsum lib adını zaten kabul eder). Okuma=kişiye özel kod (aynı kapı) + cache=offline;
    admin boşken 📖'e basınca direkt editör (ekle), doluyken okuyucu+✏️; boş kaydet=rehberi kaldır. */
@@ -9829,7 +9943,11 @@ function copySyncCode() {
   for(var _i=0;_i<localStorage.length;_i++){var _k=localStorage.key(_i);if(_k&&_k.indexOf(_pp)===0){var _v=parseInt(localStorage.getItem(_k),10);if(_v>0)pos[_k.slice(_pp.length)]=_v;}}
   var stars={};
   for(var _is=0;_is<localStorage.length;_is++){var _ks=localStorage.key(_is);if(_ks&&_ks.indexOf(_sp)===0){try{var _vs=JSON.parse(localStorage.getItem(_ks));if(_vs&&_vs.length)stars[_ks.slice(_sp.length)]=_vs;}catch(e){}}}
-  var code=btoa(unescape(encodeURIComponent(JSON.stringify({v:3,ticks:ids,pos:pos,stars:stars}))));
+  /* __MYNOTE__: sürüm v3'te KALIR (v4 eski sürümlerce reddedilirdi). Not yalnız DOLUYSA alan eklenir
+     → notu olmayan kullanıcıda üretilen kod eskisiyle BAYT-AYNI. */
+  var _payload={v:3,ticks:ids,pos:pos,stars:stars};
+  var _mn=_myNoteGet(); if(_mn) _payload.note=_mn;
+  var code=btoa(unescape(encodeURIComponent(JSON.stringify(_payload))));
   var ov=showModal('<h3>Sync Kodu</h3><p>Kodu basili tutun ve kopyalayin:</p><textarea id="sc-out" readonly style="font-size:0.7rem;">'+code+'</textarea><div class="modal-btns"><button class="btn-primary" id="sc-cb">Kopyala</button><button class="btn-secondary" id="sc-cl">Kapat</button></div>',
     function(ov2){
       var ta=ov2.querySelector('#sc-out'),cb=ov2.querySelector('#sc-cb'),cl=ov2.querySelector('#sc-cl');
@@ -9855,8 +9973,8 @@ function importSyncCode() {
         var code=ta.value.trim(); if(!code)return;
         try{
           var raw=decodeURIComponent(escape(atob(code)));
-          var ids='', pos={}, stars={};
-          try{var obj=JSON.parse(raw);if(obj&&(obj.v===2||obj.v===3)){ids=obj.ticks||'';pos=obj.pos||{};if(obj.v===3)stars=obj.stars||{};} else{ids=raw;}}catch(e){ids=raw;}
+          var ids='', pos={}, stars={}, note=null; /* __MYNOTE__: note=null → kodda not YOK (eski kod veya boş not) */
+          try{var obj=JSON.parse(raw);if(obj&&(obj.v===2||obj.v===3)){ids=obj.ticks||'';pos=obj.pos||{};if(obj.v===3){stars=obj.stars||{};if(typeof obj.note==='string'&&obj.note)note=obj.note;}} else{ids=raw;}}catch(e){ids=raw;}
           (curView()||document).querySelectorAll('.item-check').forEach(cb=>{cb.checked=false;var row=document.getElementById('row_'+cb.id);if(row)row.classList.remove('done');});
           ids.split(',').filter(Boolean).forEach(id=>{var cb=document.getElementById(id);if(!cb)return;cb.checked=true;var row=document.getElementById('row_'+cb.id);if(row)row.classList.add('done');});
           Object.keys(pos).forEach(function(id){var t=parseInt(pos[id],10);if(t>0)try{localStorage.setItem(cur().prefix+'pos_'+id,t);}catch(e){}});
@@ -9866,7 +9984,11 @@ function importSyncCode() {
           var _m='Tikler basariyla aktarildi.';
           if(posCount>0)_m+=' '+posCount+' medya konumu yuklendi.';
           if(starCount>0)_m+=' '+starCount+' podcast yildizlilari yuklendi.';
-          showMsg('Basarili',_m);
+          /* __MYNOTE__: not ASLA sessizce EZİLMEZ — yerelde farklı bir not varsa kullanıcı seçer. */
+          var _lo=_myNoteGet();
+          if(note===null || note===_lo){ if(note&&note===_lo)_m+=' (Notların zaten aynı.)'; showMsg('Basarili',_m); }
+          else if(!_lo){ _myNoteSet(note); showMsg('Basarili',_m+' Notların da yüklendi.'); }
+          else { _myNoteConflict(note,_lo,_m); }
         }catch(e){var ap=ov2.querySelector('#sc-ap');ap.textContent='Gecersiz kod!';setTimeout(()=>{ap.textContent='Uygula';},2000);}
       };
       ov2.querySelector('#sc-ca').onclick=()=>closeModal(ov2);
