@@ -8891,6 +8891,19 @@ async function _annBoot(){
    hangi cihazdan girersen gir, şifreyle aynı notu görürsün.
    ⚠️ worker.js'e mode=note / mode=setnote eklendi → WORKER REDEPLOY ŞART. */
 function _noteUrl(m,pass){ return LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode='+m+'&a='+encodeURIComponent(pass); }
+/* 📋 Kopyala (her iki not ekranı) — Sync Kodu kopyalayıcısıyla AYNI kanıtlanmış yol:
+   önce geçici textarea + execCommand (iOS Safari uyumlu), olmazsa clipboard API. */
+function _noteCopyTxt(txt,btn){
+  var _ot=btn?btn.textContent:'';
+  var done=function(ok){ if(!btn)return; btn.textContent=ok?'✓ Kopyalandı':'Kopyalanamadı'; setTimeout(function(){ btn.textContent=_ot; },1800); };
+  var tmp=document.createElement('textarea'); tmp.value=txt||'';
+  tmp.style.cssText='position:fixed;top:0;left:0;opacity:0;font-size:16px;';
+  document.body.appendChild(tmp); tmp.focus(); try{ tmp.setSelectionRange(0,99999); }catch(e){}
+  var ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+  document.body.removeChild(tmp);
+  if(ok){ done(true); return; }
+  try{ navigator.clipboard.writeText(txt||'').then(function(){done(true);},function(){done(false);}); }catch(e){ done(false); }
+}
 async function _noteOpen(){
   if(typeof _verLive!=='function'||!_verLive()){ showMsg('Sunucu Yok','Yönetici notu sunucuda (KV) saklanır; yalnız canlı (Worker) modda açılır.'); return; }
   var pass=prompt('Admin şifresi (not sunucudan çekilir):'); if(pass===null)return; pass=pass.trim(); if(!pass)return;
@@ -8908,11 +8921,12 @@ async function _noteOpen(){
 function _noteShow(txt){
   showModal('<h3 style="padding-right:20px">📝 Not <span style="font-size:.72rem;font-weight:600;opacity:.65">(yalnız yönetici)</span></h3>'
     +'<div class="sum-view">'+(txt?_biEsc(txt):'<span style="opacity:.55">(boş — ✏️ Düzenle ile not ekle)</span>')+'</div>'
-    +'<div class="modal-btns"><button class="btn-primary" id="_nt_cx">Kapat</button><button class="btn-secondary" id="_nt_ed">✏️ Düzenle</button></div>',
+    +'<div class="modal-btns"><button class="btn-primary" id="_nt_cx">Kapat</button>'+(txt?'<button class="btn-secondary" id="_nt_cp">📋 Kopyala</button>':'')+'<button class="btn-secondary" id="_nt_ed">✏️ Düzenle</button></div>',
     function(o){
       o.querySelector('.sync-modal').classList.add('sum-big');
       o.querySelector('#_nt_cx').onclick=function(){ closeModal(o); };
       o.querySelector('#_nt_ed').onclick=function(){ closeModal(o); _noteEdit(txt); };
+      var _cp=o.querySelector('#_nt_cp'); if(_cp) _cp.onclick=function(){ _noteCopyTxt(txt,_cp); }; /* 📋 */
     });
 }
 function _noteEdit(pre){
@@ -8955,7 +8969,7 @@ function _myNoteOpen(){
     +'<p style="font-size:.78rem;color:#718096;margin:4px 0 8px;line-height:1.5">Yalnız <b>bu cihazda</b> saklanır — sunucuya gitmez, kimse göremez. Diğer cihazına taşımak için <b>📋 Sync Kodu</b> kullan.</p>'
     +'<textarea id="_mn_t" placeholder="Notlarını buraya yaz…" style="width:100%;min-height:240px;max-height:52vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
     +'<div id="_mn_st" style="font-size:.72rem;color:#94a3b8;margin-top:6px;min-height:1em"></div>'
-    +'<div class="modal-btns" style="margin-top:8px"><button class="btn-primary" id="_mn_sv">💾 Kaydet</button><button class="btn-secondary" id="_mn_cx">Kapat</button></div>',
+    +'<div class="modal-btns" style="margin-top:8px"><button class="btn-primary" id="_mn_sv">💾 Kaydet</button><button class="btn-secondary" id="_mn_cp">📋 Kopyala</button><button class="btn-secondary" id="_mn_cx">Kapat</button></div>',
     function(o){
       o.querySelector('.sync-modal').classList.add('sum-big');
       var ta=o.querySelector('#_mn_t'), st=o.querySelector('#_mn_st');
@@ -8966,6 +8980,7 @@ function _myNoteOpen(){
         _myNoteSet(ta.value); cur0=ta.value; _dirty=false;
         st.textContent='✓ kaydedildi'; setTimeout(function(){ if(st)st.textContent=''; },1800);
       };
+      o.querySelector('#_mn_cp').onclick=function(){ _noteCopyTxt(ta.value,this); }; /* 📋: ekranda GÖRÜNENİ kopyalar (kaydedilmemiş yazı dahil) */
       o.querySelector('#_mn_cx').onclick=function(){
         if(_dirty && !confirm('Kaydedilmemiş değişiklik var — yine de kapatılsın mı?')) return; /* yazdığını kazara kaybetme */
         closeModal(o);
