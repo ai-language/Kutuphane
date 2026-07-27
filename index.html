@@ -16,6 +16,9 @@
      (uygulama 6 kütüphaneli bir arşiv, salt NHG değil). -->
 <title>Kütüphane Arşivi</title>
 <link rel="manifest" href="manifest.json">
+<!-- __PWA_ICON__ (2026-07-27): iOS ana ekran ikonu manifest'ten OKUNMAZ; apple-touch-icon şart. Yoksa iPad/iPhone sayfanın ekran görüntüsünü koyar (kullanıcı "ikon belirmedi" dedi). Raster PNG = fonta bağımsız → her platformda BİREBİR aynı görünüm. -->
+<link rel="apple-touch-icon" href="lib_icon_180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="lib_icon_192.png">
 <meta name="theme-color" id="_themec" content="#0f1419">
 <script>
 /* ====== __EARLY_TC__ — theme-color'ı PARSE ANINDA doğru yaz ======================
@@ -195,6 +198,81 @@
   html[data-theme="dark"] .sum-view{ background:#0d1117; color:#dbe3ec; border-color:#30363d; }
   html[data-theme="dark"] .sync-modal.sum-big .btn-secondary{ background:#21262d; color:#c9d1d9; }
   html[data-theme="dark"] .sync-modal.sum-big textarea, html[data-theme="dark"] .sync-modal.sum-big input[type="text"]{ background:#0d1117; color:#dbe3ec; border-color:#30363d; }
+  /* __SUM_FS__ v1 (2026-07-24): OKUMA ekranları (analiz/duyuru/not/rehber) TAM EKRAN — SALT SUNUM.
+     'sum-fs' sınıfı YOKKEN tek piksel değişmez; tüm kurallar .sum-fs ile kapılı. */
+  .sync-modal.sum-big{ position:relative; }                       /* ⛶ butonunun ankrajı (akışı değiştirmez) */
+  .sum-fsb{ position:absolute; top:9px; right:10px; z-index:4; width:31px; height:31px; padding:0;
+    display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; cursor:pointer;
+    background:rgba(127,127,127,.10); border:1px solid rgba(127,127,127,.26); color:#64748b; border-radius:9px;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation; transition:background .15s, color .15s; }
+  .sum-fsb:hover{ background:rgba(127,127,127,.22); color:#1a202c; }
+  html[data-theme="dark"] .sum-fsb{ color:#9aa4b2; }
+  html[data-theme="dark"] .sum-fsb:hover{ color:#e6edf3; }
+  /* TAM EKRAN: dış çerçeve/perde/kenar boşluğu YOK — yalnız yazı çerçevesi.
+     ⚠️ ZOOM GÜVENLİĞİ: position:FIXED + inset:0 kullanılMAZ — `html{zoom:N}` altında fixed kutu
+     ekrandan taşıyordu (masaüstü). Bunun yerine ZATEN doğru boyutlanan .sync-overlay'in içini
+     doldururuz (o da fixed+inset:0, vw/vh YOK) → zoom mantığına HİÇ karışmadan taşma biter.
+     Aynı sebeple ⛶ butonu da fixed değil, modale göre absolute. */
+  /* Kutu KENDİ ölçüsünü almaz: perdenin içini %100 doldurur. Perde zaten fixed+inset ile
+     ekranı kaplıyor → hangi zoom olursa olsun kutu onunla BİREBİR örtüşür. JS ölçüm YOK.
+     Perdenin 16px iç boşluğu da tam ekranda sıfırlanır (sum-fs-ov), yoksa kenarda şerit kalırdı. */
+  .sync-overlay.sum-fs-ov{ padding:0; }
+  html.sum-fs-lock{ overflow:hidden; }            /* arkadaki sayfa kaydırma çubuğu şerit gibi görünmesin */
+  .sync-modal.sum-fs{ position:relative; width:100%; height:100%; max-width:none; max-height:none;
+    border-radius:0; padding:0; margin:0; box-shadow:none; overflow:hidden; display:flex; flex-direction:column; }
+  /* ⚠️ ÖZGÜLLÜK TUZAĞI (gece modunda yıldızların görünmemesinin GERÇEK sebebiydi):
+     mevcut `html[data-theme="dark"] .sync-modal.sum-big{...}` kuralı 3 sınıf + 1 eleman taşıyor.
+     Arka plan kurallarımız daha zayıfsa GECE'de eziliyor ve kutu opak kalıyordu. Bu yüzden
+     arka-plan kuralları HER ZAMAN var olan `sum-big` ile birlikte yazılır → tema kuralını geçer.
+     Gündüz/Sade zaten çalışıyordu; bu satırlar onların sonucunu DEĞİŞTİRMEZ (aynı renkler). */
+  html .sync-modal.sum-big.sum-fs{ background:#fafcff; }
+  html[data-theme="dark"] .sync-modal.sum-big.sum-fs{ background:#0d1117; }
+  .sum-fs h3, .sum-fs > p, .sum-fs .modal-btns{ display:none; }   /* başlık + açıklama + buton şeridi gizlenir */
+  /* ⚠️ AYNI ÖZGÜLLÜK TUZAĞI 2. KEZ: `html[data-theme="dark"] .sum-view{background:#0d1117}` (0,2,1)
+     düz `.sum-fs .sum-view` (0,2,0) kuralını EZİYORDU → gece modunda yazı çerçevesi opak kalıyor,
+     saydam yapsan da yıldızlar görünmüyordu. Arka planı ayrı ve DAHA GÜÇLÜ seçicilerle veriyoruz. */
+  html .sum-fs .sum-view,
+  html[data-theme="dark"] .sum-fs .sum-view,
+  html[data-theme="light"] .sum-fs .sum-view{ background:transparent; border-color:transparent; }
+  .sum-fs .sum-view{ flex:1; height:100%; max-height:none; margin:0; border:none; border-radius:0;
+    font-size:1.06rem; line-height:1.95;
+    padding-top:calc(env(safe-area-inset-top,0px) + 54px);        /* çentik + ⛶ butonu payı */
+    padding-bottom:calc(env(safe-area-inset-bottom,0px) + 30px);
+    /* Ortalı ama FERAH: satır 132ch'e kadar yayılır (eski 78ch dardı). Dar ekranda kenar payı korunur. */
+    padding-left:max(calc(env(safe-area-inset-left,0px) + 20px), calc((100% - 132ch)/2));
+    padding-right:max(calc(env(safe-area-inset-right,0px) + 20px), calc((100% - 132ch)/2)); }
+  @media(min-width:700px){  .sum-fs .sum-view{ font-size:1.12rem; } }
+  @media(min-width:1300px){ .sum-fs .sum-view{ font-size:1.18rem; } }   /* geniş ekranda yazı da büyür */
+  .sum-fs .sum-fsb{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 10px); right:calc(env(safe-area-inset-right,0px) + 12px);
+    background:rgba(127,127,127,.16); border-color:transparent; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  /* SAĞ-ALT buzlu şerit — #themebar'ın BİREBİR görünümü, tam ekranda "Opak / Saydam" işlevi.
+     themebar'a DOKUNULMADI (o perdenin altında kalır); bu, modalın KENDİ içindeki ayrı şerittir. */
+  .sum-fsbar{ display:none; position:absolute; right:16px; bottom:calc(16px + env(safe-area-inset-bottom,0px)); z-index:5;
+    padding:4px; gap:2px; border-radius:999px; border:1px solid rgba(255,255,255,.14);
+    background:rgba(18,26,46,.62); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    box-shadow:0 10px 30px rgba(0,0,0,.34); }
+  .sum-fs .sum-fsbar{ display:inline-flex; }
+  .sum-fsbar button{ appearance:none; border:none; cursor:pointer; padding:8px 15px; border-radius:999px;
+    font-size:.78rem; font-weight:700; letter-spacing:.4px; color:rgba(226,232,240,.72); background:transparent;
+    transition:color .2s, background .25s; -webkit-tap-highlight-color:transparent; touch-action:manipulation; white-space:nowrap; }
+  .sum-fsbar button.on{ color:#fff; background:rgba(255,255,255,.17); box-shadow:0 2px 10px rgba(0,0,0,.22); }
+  /* SAYDAM: TAM saydam — arkadaki canvas/yıldız alanı olduğu gibi görünür. Bunun için modal DA,
+     perde DE (tint+blur) devre dışı bırakılır; perdeye sınıfı JS ekler (CSS üst öğe seçemez).
+     Opak = varsayılan, bugünkü hal — bu kuralların hiçbiri çalışmaz. */
+  /* SAYDAM — üstteki tema kurallarını GEÇECEK özgüllükte (sum-big dahil), her üç temada da çalışır */
+  html .sync-modal.sum-big.sum-fs.sum-tr,
+  html[data-theme="dark"] .sync-modal.sum-big.sum-fs.sum-tr,
+  html[data-theme="light"] .sync-modal.sum-big.sum-fs.sum-tr{ background:transparent; backdrop-filter:none; -webkit-backdrop-filter:none; }
+  html .sync-overlay.sum-tr-ov,
+  html[data-theme="dark"] .sync-overlay.sum-tr-ov,
+  html[data-theme="light"] .sync-overlay.sum-tr-ov{ background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; }
+  /* SADECE CANVAS: gövdenin diğer çocukları (hub, kütüphane başlıkları, tema şeridi…) gizlenir;
+     yalnız #starfield canvas'ı + okuma perdesi kalır. display:none DEĞİL visibility:hidden →
+     yerleşim ve KAYDIRMA KONUMU korunur, çıkışta sayfa zıplamaz. Sınıf yalnız tam-ekran+saydamda. */
+  html.sum-canvas-only body > *:not(#starfield):not(.sync-overlay){ visibility:hidden; }
+  /* okunabilirlik: saydamda yazı her zemin üstünde seçilsin (çok hafif gölge) */
+  .sum-fs.sum-tr .sum-view{ text-shadow:0 1px 3px rgba(255,255,255,.75); }
+  html[data-theme="dark"] .sum-fs.sum-tr .sum-view{ text-shadow:0 1px 4px rgba(0,0,0,.85); }
   .item-title{flex:1;font-size:0.9rem;color:#a0aec0;cursor:pointer;line-height:1.4;user-select:none;}
   .item-title.has-media{color:#2b6cb0;cursor:pointer;}
   .item-title.has-media:hover{text-decoration:underline;}
@@ -8542,6 +8620,12 @@ function showClkEditor(){
       o.querySelector('#_clk_cx').onclick=function(){ closeModal(o); };
       o.querySelector('#_clk_ap').onclick=async function(){
         var map={}; o.querySelectorAll('._clkcb').forEach(function(cb){ map[cb.dataset.id]=cb.checked?'1':'0'; });
+        /* __MANIFEST_HINT__ v1: kaydetmeden ÖNCE "şu an kapalı olanlar"ı not al → başarıdan sonra
+           hangilerinin YENİ açıldığını bilip manifest hatırlatması verebilelim (yalnız admin görür). */
+        var _wasOff={}; (function(){ var _ov=_clkMap[currentLib]||{};
+          (curView()||document).querySelectorAll('.item-title').forEach(function(el){ var id=el.dataset.id; if(!id)return;
+            var eff=(_ov[id]==='0'||_ov[id]==='1')?_ov[id]:(el.dataset.clk==='0'?'0':'1');
+            if(eff==='0') _wasOff[id]=1; }); })();
         var pass=prompt('Admin \u015fifresi \u2014 de\u011fi\u015fiklik T\u00dcM kullan\u0131c\u0131lara uygulanacak:'); if(pass===null) return; pass=pass.trim(); if(!pass) return;
         var btn=this, _ot=btn.textContent; btn.disabled=true; btn.textContent='Uygulan\u0131yor\u2026';
         try{
@@ -8553,7 +8637,19 @@ function showClkEditor(){
           (curView()||document).querySelectorAll('.item-title').forEach(function(el){ var id=el.dataset.id; if(id&&(map[id]==='0'||map[id]==='1')) el.dataset.clk=map[id]; });
           loadMediaState(); updateCounts();
           closeModal(o);
-          showMsg('Uyguland\u0131','T\u0131klanabilirlik g\u00fcncellendi \u2014 t\u00fcm kullan\u0131c\u0131lara yans\u0131yacak.');
+          /* __MANIFEST_HINT__ v1: YEN\u0130 a\u00e7\u0131lan ba\u015fl\u0131klardan MAN\u0130FESTTE OLMAYANLAR i\u00e7in \u2601 hat\u0131rlatmas\u0131.
+             Manifestte zaten olanlar deploy'suz \u2601 al\u0131r \u2192 onlar i\u00e7in uyar\u0131 \u00c7IKMAZ (gereksiz g\u00fcr\u00fclt\u00fc yok). */
+          var _man=_manifest[currentLib]||{}, _need=[];
+          Object.keys(map).forEach(function(id){ if(map[id]==='1'&&_wasOff[id]&&!(_man[id]&&_man[id].url)) _need.push(id); });
+          if(_need.length){
+            showMsg('Uyguland\u0131 \u2014 \u2601 i\u00e7in manifest gerekiyor',
+              _need.length+' ba\u015fl\u0131k yeni a\u00e7\u0131ld\u0131 ve <b>manifestte yok</b>.<br><br>'
+              +'Ba\u015fl\u0131klar <b>\u015fimdiden \u00e7al\u0131\u015f\u0131r</b> \u2014 t\u0131klay\u0131nca i\u00e7erik iner. Ama <b>\u2601 i\u015faretinin g\u00f6r\u00fcnmesi</b> i\u00e7in:<br>'
+              +'<b>1)</b> i\u00e7eri\u011fi sunucuya y\u00fckle &nbsp;<b>2)</b> hub \u2192 \ud83d\udccb Manifest \u00fcret &nbsp;<b>3)</b> GitHub\'a koy.<br><br>'
+              +'<span style="opacity:.75;font-size:.9em">Manifestte zaten olan ba\u015fl\u0131klar\u0131 a\u00e7/kapa yapmak deploy gerektirmez.</span>');
+          } else {
+            showMsg('Uyguland\u0131','T\u0131klanabilirlik g\u00fcncellendi \u2014 t\u00fcm kullan\u0131c\u0131lara yans\u0131yacak.');
+          }
         }catch(e){ btn.disabled=false; btn.textContent=_ot; showMsg('Hata','Sunucuya ula\u015f\u0131lamad\u0131: '+((e&&e.message)||e)); }
       };
     });
@@ -8620,7 +8716,7 @@ function showBiTitlesEditor(){
     +(lib==='bi_en'?'<button class="btn-secondary" id="_bt_cp" style="width:100%;margin-bottom:10px;font-size:.8rem">\u21c4 NL (bi) listesinden kopyala (senkron)</button>':'')
     +'<div class="modal-btns"><button class="btn-primary" id="_bt_ap">\ud83d\udd12 Uygula (admin \u015fifresi)</button><button class="btn-secondary" id="_bt_cx">\u0130ptal</button></div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big'); /* geni\u015f + gece modu uyumlu */
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o); /* geni\u015f + gece modu uyumlu */
       /* __BI_TITLES__ v3 (2026-07-17): H\u0130YERAR\u015e\u0130K ekleme + YER\u0130NDE AD DE\u011e\u0130\u015eT\u0130RME (\u270f\ufe0f \u2014 id DE\u011e\u0130\u015eMEZ \u2192 medya/ilerleme/y\u0131ld\u0131z/\u00f6zet ba\u011fl\u0131 kal\u0131r; arama/manifest/di\u011fer her \u015fey DOM+sunucu listesinden otomatik senkron) + SIRALAMA (\u2191\u2193 \u2014 \u00fcst blo\u011fuyla birlikte ta\u015f\u0131n\u0131r, alt kendi \u00fcst\u00fcn\u00fcn blo\u011fu i\u00e7inde kayar). \u00dcst silinirse altlar\u0131 da birlikte (onayl\u0131). */
       function altEnd(ui){ var j=ui+1; while(j<work.length&&work[j].sub==='1')j++; return j; }
       function moveUst(i,dir){
@@ -8802,7 +8898,7 @@ async function _sumOpen(id,sid,no,tot){
     +'<div style="display:flex;justify-content:flex-end;margin:-2px 0 8px"><span class="sum-bgtog" id="_sm_bg"><button type="button" data-v="blur" title="Buzlu cam arka plan">\ud83e\udee7</button><button type="button" data-v="clear" title="\u015eeffaf \u2014 arka plan g\u00f6r\u00fcn\u00fcr">\ud83d\udc41</button></span></div>'
     +'<div class="modal-btns"><button class="btn-primary" id="_sm_dl">\ud83d\udce5 TXT indir</button>'+(adm?'<button class="btn-secondary" id="_sm_ed">\u270f\ufe0f D\u00fczenle</button>':'')+'<button class="btn-secondary" id="_sm_cx">Kapat</button></div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big'); /* __SUM__ v2: B\u00dcY\u00dcK okuyucu (iPhone tam-geni\u015flik, masa\u00fcst\u00fc ~980px) + gece modu CSS'i */
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o); /* __SUM__ v2: B\u00dcY\u00dcK okuyucu (iPhone tam-geni\u015flik, masa\u00fcst\u00fc ~980px) + gece modu CSS'i */
       /* __MODAL_BG__: minik sa\u011fa-sola segment (\ud83e\udee7 buzlu / \ud83d\udc41 \u015feffaf) \u2014 tercih t\u00fcm modallara ge\u00e7erli */
       var _bgw=o.querySelector('#_sm_bg');
       if(_bgw){ var _bgU=function(){ var clr=o.classList.contains('bg-clear'); Array.prototype.forEach.call(_bgw.querySelectorAll('button'),function(b){ b.classList.toggle('on',(b.dataset.v==='clear')===clr); }); }; _bgU();
@@ -8834,7 +8930,7 @@ function _annShow(){
     +'<div class="sum-view">'+_biEsc(_annTxt)+'</div>'
     +'<div class="modal-btns"><button class="btn-primary" id="_an_cx">Kapat</button>'+(adm?'<button class="btn-secondary" id="_an_ed">✏️ Düzenle</button>':'')+'</div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o);
       o.querySelector('#_an_cx').onclick=function(){ closeModal(o); };
       var ed=o.querySelector('#_an_ed'); if(ed) ed.onclick=function(){ closeModal(o); _annEdit(_annTxt); };
     });
@@ -8852,7 +8948,7 @@ function _annEdit(pre){
     +'<textarea id="_an_t" style="width:100%;min-height:200px;max-height:52vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
     +'<div class="modal-btns" style="margin-top:10px"><button class="btn-primary" id="_an_sv">🔒 Kaydet (admin şifresi)</button><button class="btn-secondary" id="_an_cx">İptal</button></div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o);
       var ta=o.querySelector('#_an_t'); ta.value=pre||'';
       o.querySelector('#_an_cx').onclick=function(){ closeModal(o); };
       o.querySelector('#_an_sv').onclick=async function(){
@@ -8890,6 +8986,94 @@ async function _annBoot(){
    silinir. Düzenlemede şifre TEKRAR sorulur (kullanıcı isteği). Sunucuda durduğu için sync'e gerek yok:
    hangi cihazdan girersen gir, şifreyle aynı notu görürsün.
    ⚠️ worker.js'e mode=note / mode=setnote eklendi → WORKER REDEPLOY ŞART. */
+/* ============ __SUM_FS__ v1 (2026-07-24): OKUMA ekranlarına TAM EKRAN anahtarı ============
+   4 ekran ORTAK kullanır: 📄 analiz/özet · 📢 duyuru · 📝 not · 📖 rehber.
+   SALT SUNUM: yaptığı tek şey .sync-modal'a 'sum-fs' sınıfını ekleyip çıkarmak — hiçbir veri,
+   akış, buton mantığı veya modal kapanışı etkilenmez. Yalnız .sum-view İÇEREN (okuma) modallere
+   takılır; textarea'lı DÜZENLEME ekranlarına takılmaz. Tercih kalıcı (lib_sum_fs). */
+function _sumFsAttach(o){
+  var m=(o&&o.querySelector)?o.querySelector('.sync-modal'):null;
+  if(!m||!m.querySelector('.sum-view'))return;   /* yalnız okuma ekranları */
+  if(m.querySelector('.sum-fsb'))return;         /* idempotent */
+  var b=document.createElement('button');
+  b.className='sum-fsb'; b.type='button';
+  /* TAM SAYDAM = tam ekran + Saydam. O anda: perde şeffaf + gövdenin diğer çocukları gizli
+     → geriye YALNIZ #starfield canvas'ı kalır. İkisinden biri kapanınca her şey eski haline döner. */
+  function _paintTr(){
+    var on=m.classList.contains('sum-fs')&&m.classList.contains('sum-tr');
+    if(o&&o.classList) o.classList.toggle('sum-tr-ov',on);
+    try{ document.documentElement.classList.toggle('sum-canvas-only',on); }catch(e){}
+    /* Yıldızları UYANDIR: __sfPause() podcast katmanı açılınca animasyonu durduruyor, __sfResume ise
+       YALNIZ o katmanın kapat düğmesine basılırsa çağrılıyor. Başka yolla kapatıldıysa _sfHold true
+       kalıp yıldızlar oturum boyu çizilmiyor → saydam okumada boş koyu ekran görünüyordu.
+       GÜVENLİK: yalnız canvas moduna GEÇERKEN ve podcast katmanı KAPALIYKEN — __SF_HOLD__'un
+       "podcast arkasında animasyon dönmesin" koruması aynen yerinde kalır. Sade'de zaten no-op. */
+    if(on){ try{
+      var _nov=document.getElementById('nhg-overlay');
+      if(window.__sfResume && !(_nov&&_nov.classList.contains('active'))) window.__sfResume();
+    }catch(e){} }
+  }
+  var _scrollY=0;
+  function set(on){
+    var was=m.classList.contains('sum-fs');
+    m.classList.toggle('sum-fs',!!on);
+    if(o&&o.classList) o.classList.toggle('sum-fs-ov',!!on);     /* perdenin 16px iç boşluğu sıfırlansın */
+    try{
+      if(on&&!was){ _scrollY=window.pageYOffset||document.documentElement.scrollTop||0; }
+      document.documentElement.classList.toggle('sum-fs-lock',!!on);
+      if(!on&&was){ window.scrollTo(0,_scrollY); }               /* çıkışta kaydırma konumu geri */
+    }catch(e){}
+    _paintTr();
+    b.innerHTML=on?'⤡':'⛶';
+    b.title=on?'Tam ekrandan çık (Esc)':'Tam ekran oku';
+    b.setAttribute('aria-label',b.title);
+    try{localStorage.setItem('lib_sum_fs',on?'1':'0');}catch(e){}
+  }
+  b.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); set(!m.classList.contains('sum-fs')); });
+  m.appendChild(b);
+
+  /* SAĞ-ALT şerit: Opak / Saydam — yalnız tam ekranda görünür (CSS: .sum-fs .sum-fsbar).
+     Saydamda perdenin blur'lu arka planı sızar (C kartı hissi). Tercih kalıcı: lib_sum_tr. */
+  var bar=document.createElement('div'); bar.className='sum-fsbar';
+  var bOp=document.createElement('button'), bTr=document.createElement('button');
+  bOp.type='button'; bOp.textContent='Opak';   bOp.title='Arka plan tamamen opak (varsayılan)';
+  bTr.type='button'; bTr.textContent='Saydam'; bTr.title='Arka plan hafif saydam — kütüphane arkadan hafifçe görünür';
+  function setTr(on){
+    m.classList.toggle('sum-tr',!!on);
+    _paintTr();
+    bOp.classList.toggle('on',!on); bTr.classList.toggle('on',!!on);
+    try{localStorage.setItem('lib_sum_tr',on?'1':'0');}catch(e){}
+  }
+  bOp.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); setTr(false); });
+  bTr.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); setTr(true); });
+  bar.appendChild(bOp); bar.appendChild(bTr); m.appendChild(bar);
+  var trPref=false; try{ trPref=localStorage.getItem('lib_sum_tr')==='1'; }catch(e){}
+  setTr(trPref);
+
+  var pref=false; try{ pref=localStorage.getItem('lib_sum_fs')==='1'; }catch(e){}
+  set(pref);
+  /* Esc = önce tam ekrandan çık (modalı KAPATMAZ). Modal DOM'dan gidince dinleyici kendini siler. */
+  function onKey(e){
+    if(!document.body.contains(m)){ document.removeEventListener('keydown',onKey); return; }
+    if(e.key==='Escape'&&m.classList.contains('sum-fs')){ e.stopPropagation(); e.preventDefault(); set(false); }
+  }
+  document.addEventListener('keydown',onKey);
+  /* ⚠️ ZORUNLU TEMİZLİK: modal HANGİ yolla kapanırsa kapansın (Kapat düğmesi / perdeye tık),
+     <html>'deki sum-canvas-only VE sum-fs-lock KALKMALI — yoksa sayfa görünmez / kaydırılamaz kalır. */
+  if(typeof MutationObserver!=='undefined'){
+    var _rmo=new MutationObserver(function(){
+      if(document.body.contains(m)) return;
+      try{
+        var _r=document.documentElement.classList;
+        _r.remove('sum-canvas-only'); _r.remove('sum-fs-lock');
+        if(_scrollY) window.scrollTo(0,_scrollY);
+      }catch(e){}
+      _rmo.disconnect();
+    });
+    _rmo.observe(document.body,{childList:true});
+  }
+}
+
 function _noteUrl(m,pass){ return LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode='+m+'&a='+encodeURIComponent(pass); }
 /* 📋 Kopyala (her iki not ekranı) — Sync Kodu kopyalayıcısıyla AYNI kanıtlanmış yol:
    önce geçici textarea + execCommand (iOS Safari uyumlu), olmazsa clipboard API. */
@@ -8923,7 +9107,7 @@ function _noteShow(txt){
     +'<div class="sum-view">'+(txt?_biEsc(txt):'<span style="opacity:.55">(boş — ✏️ Düzenle ile not ekle)</span>')+'</div>'
     +'<div class="modal-btns"><button class="btn-primary" id="_nt_cx">Kapat</button>'+(txt?'<button class="btn-secondary" id="_nt_cp">📋 Kopyala</button>':'')+'<button class="btn-secondary" id="_nt_ed">✏️ Düzenle</button></div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o);
       o.querySelector('#_nt_cx').onclick=function(){ closeModal(o); };
       o.querySelector('#_nt_ed').onclick=function(){ closeModal(o); _noteEdit(txt); };
       var _cp=o.querySelector('#_nt_cp'); if(_cp) _cp.onclick=function(){ _noteCopyTxt(txt,_cp); }; /* 📋 */
@@ -8935,7 +9119,7 @@ function _noteEdit(pre){
     +'<textarea id="_nt_t" style="width:100%;min-height:240px;max-height:52vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
     +'<div class="modal-btns" style="margin-top:10px"><button class="btn-primary" id="_nt_sv">🔒 Kaydet (admin şifresi)</button><button class="btn-secondary" id="_nt_cx2">İptal</button></div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o);
       var ta=o.querySelector('#_nt_t'); ta.value=pre||'';
       o.querySelector('#_nt_cx2').onclick=function(){ closeModal(o); };
       o.querySelector('#_nt_sv').onclick=async function(){
@@ -8971,7 +9155,7 @@ function _myNoteOpen(){
     +'<div id="_mn_st" style="font-size:.72rem;color:#94a3b8;margin-top:6px;min-height:1em"></div>'
     +'<div class="modal-btns" style="margin-top:8px"><button class="btn-primary" id="_mn_sv">💾 Kaydet</button><button class="btn-secondary" id="_mn_cp">📋 Kopyala</button><button class="btn-secondary" id="_mn_cx">Kapat</button></div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o);
       var ta=o.querySelector('#_mn_t'), st=o.querySelector('#_mn_st');
       ta.value=cur0;
       var _dirty=false;
@@ -9004,7 +9188,7 @@ function _myNoteConflict(inc, loc, baseMsg){
     +'<button class="btn-secondary" id="_mnc_kp">✋ Bu cihazdakini koru</button>'
     +'</div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o);
       o.querySelector('#_mnc_mg').onclick=function(){ _myNoteSet(loc+'\n\n--- (sync ile gelen) ---\n\n'+inc); closeModal(o); showMsg('Birleştirildi','Notların birleştirildi — 🗒 Notlarım\'dan düzenleyebilirsin.'); };
       o.querySelector('#_mnc_rp').onclick=function(){ _myNoteSet(inc); closeModal(o); showMsg('Değiştirildi','Notların gelen notla değiştirildi.'); };
       o.querySelector('#_mnc_kp').onclick=function(){ closeModal(o); showMsg('Korundu','Bu cihazdaki notların değişmedi.'); };
@@ -9023,7 +9207,7 @@ async function _guideOpen(){
     +'<div class="sum-view">'+_biEsc(txt)+'</div>'
     +'<div class="modal-btns"><button class="btn-primary" id="_gd_dl">📥 TXT indir</button>'+(adm?'<button class="btn-secondary" id="_gd_ed">✏️ Düzenle</button>':'')+'<button class="btn-secondary" id="_gd_cx">Kapat</button></div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o);
       o.querySelector('#_gd_cx').onclick=function(){ closeModal(o); };
       o.querySelector('#_gd_dl').onclick=function(){ _sumDl(new Blob([txt],{type:'text/plain;charset=utf-8'}),'Kullanim Rehberi.txt'); };
       var ed=o.querySelector('#_gd_ed'); if(ed) ed.onclick=function(){ closeModal(o); _guideEdit(txt); };
@@ -9037,7 +9221,7 @@ function _guideEdit(pre){
     +'<textarea id="_gd_t" style="width:100%;min-height:240px;max-height:56vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
     +'<div class="modal-btns" style="margin-top:10px"><button class="btn-primary" id="_gd_sv">🔒 Kaydet (admin şifresi)</button><button class="btn-secondary" id="_gd_cx">İptal</button></div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big');
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o);
       var ta=o.querySelector('#_gd_t'); ta.value=pre||'';
       o.querySelector('#_gd_cx').onclick=function(){ closeModal(o); };
       o.querySelector('#_gd_f').addEventListener('change',function(){
@@ -9072,7 +9256,7 @@ function _sumEdit(id,sid,pre){
     +'<textarea id="_sm_t" style="width:100%;min-height:240px;max-height:56vh;border:1.5px solid #cbd5e0;border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea>'
     +'<div class="modal-btns" style="margin-top:10px"><button class="btn-primary" id="_sm_sv">\ud83d\udd12 Kaydet (admin \u015fifresi)</button><button class="btn-secondary" id="_sm_cx">\u0130ptal</button></div>',
     function(o){
-      o.querySelector('.sync-modal').classList.add('sum-big'); /* edit\u00f6r de B\u00dcY\u00dcK + gece modu uyumlu */
+      o.querySelector('.sync-modal').classList.add('sum-big'); _sumFsAttach(o); /* edit\u00f6r de B\u00dcY\u00dcK + gece modu uyumlu */
       var ta=o.querySelector('#_sm_t'); ta.value=pre||'';
       o.querySelector('#_sm_cx').onclick=function(){ closeModal(o); };
       o.querySelector('#_sm_f').addEventListener('change',function(){
