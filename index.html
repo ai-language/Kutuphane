@@ -190,6 +190,16 @@
   .sum-btn:hover{ opacity:1; }
   /* __SUM__ v2: BÜYÜK okuyucu/editör modalı — iPhone'da tam-genişlik, masaüstünde geniş; gece modu TAM uyumlu */
   .sync-modal.sum-big{ max-width:min(980px,94vw); width:94vw; max-height:92vh; display:flex; flex-direction:column; }
+  /* ⚠️ __SUM_ZFIT__ (2026-07-24) — ZOOM TAŞMASININ GERÇEK SEBEBİ:
+     `html{zoom:N}` altında vw/vh birimleri BÖLÜNMEZ; 92vh sonra N ile ölçeklenir → zoom 1.3'te
+     ekranın %120'si olur, kutu taşar ve ⛶ düğmesi yukarı fırlayıp erişilemez hale gelirdi.
+     (Perde taşmıyordu çünkü o inset:0 kullanıyor — birim yok.)
+     ÇÖZÜM: kutunun ölçüleri YÜZDEye çevrildi. Yüzdeler perdenin iç kutusuna göre çözülür,
+     perde de her zoom'da doğru boyutta → kutu ASLA ekrandan taşamaz. Zoom kodu değişmedi.
+     Zoom=1 görünümü ~aynı: masaüstünde genişlik zaten 980px tavanına takılıyordu; yükseklikte
+     .sum-view'in vh tavanı kalkıp yerini flex:1'e bıraktı (kalan alanı zaten o dolduruyordu). */
+  .sync-modal.sum-big{ max-width:min(980px,100%); width:100%; max-height:88%; }
+  .sum-big .sum-view{ max-height:none; }
   .sum-view{ white-space:pre-wrap;overflow-wrap:break-word;flex:1;min-height:0;max-height:66vh;overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin:8px 0 10px;font-size:.95rem;line-height:1.75;text-align:left;background:#fafcff;color:#1a202c; }
   @media(min-width:700px){ .sum-view{ font-size:1.03rem; max-height:72vh; padding:22px 26px; } .sync-modal.sum-big{ padding:26px 30px; } }
   html[data-theme="dark"] .sync-modal.sum-big{ background:#161b22; }
@@ -217,6 +227,15 @@
      ekranı kaplıyor → hangi zoom olursa olsun kutu onunla BİREBİR örtüşür. JS ölçüm YOK.
      Perdenin 16px iç boşluğu da tam ekranda sıfırlanır (sum-fs-ov), yoksa kenarda şerit kalırdı. */
   .sync-overlay.sum-fs-ov{ padding:0; }
+  /* __SUM_RD__ (2026-07-24, iPhone): OKUMA modalı telefonda tepeye çok yaklaşıyordu (çentik/durum
+     çubuğu dibi). Yalnız DAR ekranda ve YALNIZ okuma modallerinde (sum-rd-ov sınıfını JS ekler):
+     kutu ALTA yaslanır + yüksekliği sınırlanır → kısalma SADECE ÜSTTEN olur, alt kenar ve düğme
+     şeridi yerinde kalır. Masaüstü, tam ekran ve diğer tüm modaller ETKİLENMEZ. */
+  @media(max-width:600px){
+    .sync-overlay.sum-rd-ov{ align-items:flex-end; }
+    .sync-overlay.sum-rd-ov .sync-modal.sum-big{ max-height:76%; }   /* __SUM_ZFIT__: vh DEĞİL % (zoom'da taşmasın) */
+    .sync-overlay.sum-rd-ov.sum-fs-ov .sync-modal.sum-big{ max-height:none; }  /* tam ekran hariç */
+  }
   html.sum-fs-lock{ overflow:hidden; }            /* arkadaki sayfa kaydırma çubuğu şerit gibi görünmesin */
   .sync-modal.sum-fs{ position:relative; width:100%; height:100%; max-width:none; max-height:none;
     border-radius:0; padding:0; margin:0; box-shadow:none; overflow:hidden; display:flex; flex-direction:column; }
@@ -269,7 +288,17 @@
   /* SADECE CANVAS: gövdenin diğer çocukları (hub, kütüphane başlıkları, tema şeridi…) gizlenir;
      yalnız #starfield canvas'ı + okuma perdesi kalır. display:none DEĞİL visibility:hidden →
      yerleşim ve KAYDIRMA KONUMU korunur, çıkışta sayfa zıplamaz. Sınıf yalnız tam-ekran+saydamda. */
-  html.sum-canvas-only body > *:not(#starfield):not(.sync-overlay){ visibility:hidden; }
+  html.sum-canvas-only body > *:not(#starfield):not(.sync-overlay):not(#_zoom_wrap){ visibility:hidden; }
+  /* __SUM_ZBTN__ (2026-07-24): A+/A− zoom paneli tam ekranda da ERİŞİLEBİLİR olsun.
+     Sebep: panel z-index:9998, okuma perdesi 9999 → TEK BİRİM altta kalıp tıklanamıyordu.
+     Yaptığımız TEK şey katman sırası; panelin kendi kodu/animasyonu/davranışı DEĞİŞMEDİ.
+     Kural `sum-fs-lock` ile kapılı → tam ekran dışında hiçbir etkisi yok.
+     (Yanındaki :not(#_zoom_wrap) de saydam modda panelin gizlenmesini engeller.) */
+  /* ⚠️ !important ŞART: panelin z-index:9998'i INLINE style içinde (<div id="_zoom_wrap" style="…">).
+     Inline style normal stylesheet kurallarını EZER → !important olmadan bu satır hiç uygulanmıyordu;
+     panel görünüyor ama perdenin ALTINDA kalıp TIKLANMIYORDU. !important inline'ı geçen tek yol.
+     Kapsam yine dar: yalnız html.sum-fs-lock (tam ekran) varken. Dışında inline 9998 aynen geçerli. */
+  html.sum-fs-lock #_zoom_wrap{ z-index:10001 !important; }
   /* okunabilirlik: saydamda yazı her zemin üstünde seçilsin (çok hafif gölge) */
   .sum-fs.sum-tr .sum-view{ text-shadow:0 1px 3px rgba(255,255,255,.75); }
   html[data-theme="dark"] .sum-fs.sum-tr .sum-view{ text-shadow:0 1px 4px rgba(0,0,0,.85); }
@@ -8995,6 +9024,9 @@ function _sumFsAttach(o){
   var m=(o&&o.querySelector)?o.querySelector('.sync-modal'):null;
   if(!m||!m.querySelector('.sum-view'))return;   /* yalnız okuma ekranları */
   if(m.querySelector('.sum-fsb'))return;         /* idempotent */
+  /* __SUM_RD__: perdeyi "okuma modalı" diye işaretle → dar ekran kuralı (alta yaslan + üstten kısal)
+     YALNIZ bu 4 ekrana uygulanır. Masaüstünde ve diğer modallerde sınıfın hiçbir etkisi yok. */
+  if(o&&o.classList) o.classList.add('sum-rd-ov');
   var b=document.createElement('button');
   b.className='sum-fsb'; b.type='button';
   /* TAM SAYDAM = tam ekran + Saydam. O anda: perde şeffaf + gövdenin diğer çocukları gizli
