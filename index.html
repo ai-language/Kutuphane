@@ -9494,7 +9494,9 @@ async function openMedia(id) {
   const _swWant=_swPref()&&('serviceWorker' in navigator)&&!!window.caches&&location.protocol==='https:';
   const _nav=isIOS||_swWant;
   /* (iPhone "Büyük Dosya / düzgün çalışmayabilir" uyarısı KALDIRILDI 2026-07-10 — büyük podcastler iPhone'da artık sorunsuz çalışıyor, kullanıcı istedi) */
-  const savedPos=parseFloat(localStorage.getItem(cur().prefix+'pos_'+id)||'0')||0;
+  /* __LS_GUARD__ v1: medya açma çekirdek işlev — depolama erişimi hata atarsa başlığa dokunmak hiç
+     çalışmazdı. Bir alt satırdaki yıldız okuması zaten korunuyordu, bu satır atlanmış. İfade BİREBİR. */
+  const savedPos=(function(){try{return parseFloat(localStorage.getItem(cur().prefix+'pos_'+id)||'0')||0;}catch(e){return 0;}})();
   const savedStarsB64=(function(){try{var r=localStorage.getItem(cur().prefix+'stars_'+id);return r?btoa(unescape(encodeURIComponent(r))):'';}catch(e){return '';}})();
   const inj='<scr'+'ipt>(function(){'
     +'var _t='+savedPos+',_x=0,_id="'+id+'";'
@@ -10476,7 +10478,12 @@ document.addEventListener('DOMContentLoaded',initApp);
 if(document.readyState!=='loading')initApp();
 
 // --- ZOOM CONTROL ---
-var _zoomLevel=parseFloat(localStorage.getItem('pod_zoom')||'1');
+/* __LS_GUARD__ v1 (2026-07-29): ÜST SEVİYE çıplak localStorage → tek gerçek ZİNCİRLEME çöküş noktasıydı.
+   Çerezleri tamamen engelleyen tarayıcıda / uygulama-içi tarayıcıda (WhatsApp, Instagram) localStorage
+   ERİŞİMİ SecurityError atar; burası üst seviye olduğu için bu <script> bloğunun kalanı (zoom, güncelleme
+   banner'ı, SW açılışı, 📲 Ana Ekrana, 10618'deki DOMContentLoaded) sessizce hiç kurulmazdı.
+   İfade BİREBİR korundu — depolama çalışırken NaN dahil her sonuç eskisiyle aynı. Yalnız hata yolu eklendi. */
+var _zoomLevel=(function(){try{return parseFloat(localStorage.getItem('pod_zoom')||'1');}catch(e){return 1;}})();
 document.documentElement.style.zoom=_zoomLevel;
 function _updateZoomLabel(){var l=document.getElementById('_lib_zlbl');if(l)l.textContent=Math.round(_zoomLevel*100)+'%';}
 function adjZoom(d){
