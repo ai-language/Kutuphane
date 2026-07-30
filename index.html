@@ -449,6 +449,11 @@
   .media-ctrls{ display:inline-flex; gap:2px; vertical-align:middle; }
   .media-del,.media-asg{ margin-left:6px; border:none; background:transparent; cursor:pointer; font-size:14px; opacity:.5; padding:1px 4px; line-height:1; -webkit-tap-highlight-color:transparent; }
   .media-del:hover,.media-asg:hover{ opacity:1; }
+  /* __LIB_VAR__ etiket v2: TELEFONDA satır dar → çerçeve YOK, yalnız soluk minik metin (≈22px yer).
+     Masaüstünde bir tık belirgin. Tıklanamaz, akışı itmez, satır yüksekliğini değiştirmez. */
+  .media-var{ margin-left:5px; font-size:9px; font-weight:600; letter-spacing:.01em; opacity:.42;
+    vertical-align:middle; white-space:nowrap; pointer-events:none; font-variant-numeric:tabular-nums; }
+  @media (min-width:700px){ .media-var{ font-size:9.5px; opacity:.55; } }
   .hub-title{ color:#fff; font-size:1.7rem; font-weight:800; letter-spacing:.4px; margin-bottom:7px; text-align:center; }
   .hub-sub{ color:rgba(255,255,255,.5); font-size:.92rem; margin-bottom:36px; text-align:center; line-height:1.5; }
   .hub-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; width:100%; max-width:940px; }
@@ -8569,6 +8574,25 @@ async function loadMediaState() {
     if(hasLocal||_adm){
       if(!_ctr){ _ctr=document.createElement('span'); _ctr.className='media-ctrls'; el.insertAdjacentElement('afterend',_ctr); }
       var _h='';
+      /* __LIB_VAR__ etiket v3: TEK jeton, satıra ikinci öğe EKLEMEZ.
+           • BOYUT her indirilmiş başlıkta ("21MB") → depolama kararı için asıl gereken sayı budur.
+           • VARYANT eki yalnız o başlıkta sunucuda 1'DEN FAZLA sürüm varsa ("21MB·96k") — tek sürümlü
+             başlıkta gürültü olmaz.
+           • Tam açıklama ipuçta (masaüstü). Sonradan varyant yüklersen sayfa yenilenince kendiliğinden çıkar.
+           • Boyut kaydı indirme anında yazılır; bu güncellemeden ÖNCE inen kopyalarda başlığı bir kez
+             açtığında geriye doldurulur (openMedia'da html zaten elde) → o zamana kadar hiç yazmaz. */
+      if(hasLocal){
+        var _sz=_varSzGet(id), _multi=_varsCount(id)>1, _vs=_varGet(id);
+        var _tok='', _tip='';
+        if(_sz>0){ var _m=_sz/1048576; _tok=(_m>=99.5?Math.round(_m):(_m>=9.95?_m.toFixed(0):_m.toFixed(1)))+'MB'; _tip='İndirilen boyut: '+_m.toFixed(1)+' MB'; }
+        if(_multi){
+          var _vo=_varOf(_vs)||_varMoreOf(_vs);
+          var _short=_vs ? (_vs.replace(/^__(aac|mp3)/,'').replace(/m$/,'k').replace(/s$/,'k·st')) : 'HQ';
+          _tok=_tok?(_tok+'·'+_short):_short;
+          _tip=(_tip?_tip+' · ':'')+'Varyant: '+((_vo&&_vo.label)||'Orijinal');
+        }
+        if(_tok) _h+='<span class="media-var" title="'+_tip+'">'+_tok+'</span>';
+      }
       if(hasLocal)_h+='<button type="button" class="media-del" title="İndirileni sil (ilerleme/yıldız korunur)">🗑</button>';
       if(_adm)_h+='<button type="button" class="media-asg" title="Bu başlığa dosya ata (yerel test + doğru-adlı indir)">📤</button>';
       _ctr.innerHTML=_h;
@@ -9371,9 +9395,12 @@ async function _downloadMedia(id, man, _fresh){
       var _fx='', _cn2=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
       var _nt2=(_cn2&&_cn2.type==='cellular')?'<b style="color:#b45309">Hücresel veri kullanıyorsunuz</b> — Wi-Fi önerilir.'
               :((_cn2&&_cn2.type==='wifi')?'Wi-Fi bağlantısındasınız.':'Hücresel verideyseniz Wi-Fi önerilir.');
+      /* __DL_FREE__ v2: aynı dürüst adlandırma — kota, cihazın boş alanı değil */
       try{ if(navigator.storage&&navigator.storage.estimate){ var _e2=await navigator.storage.estimate();
-        if(_e2&&_e2.quota>0){ var _fr=Math.max(0,(_e2.quota||0)-(_e2.usage||0));
-          _fx='<br>Kullanılabilir alan: <b>'+(_fr>=1073741824?((_fr/1073741824).toFixed(1)+' GB'):(Math.round(_fr/1048576)+' MB'))+'</b>'; } } }catch(_e){}
+        if(_e2&&_e2.quota>0){ var _fr=Math.max(0,(_e2.quota||0)-(_e2.usage||0)), _u2=_e2.usage||0;
+          var _s2=function(b){ return b>=1073741824?((b/1073741824).toFixed(1)+' GB'):(Math.round(b/1048576)+' MB'); };
+          _fx='<br>Bu site için kalan yer: <b>'+_s2(_fr)+'</b>'+(_u2>0?(' · kullanılan: '+_s2(_u2)):'')
+            +'<br><span style="opacity:.7">(tarayıcı kotası — cihazın boş alanı değil)</span>'; } } }catch(_e){}
       var _cnt=_varGet(id);            /* o an KURULU varyant → ön-seçim (3'lünün dışındaysa kutuya yerleşir) */
       var _mbT=function(b){ var mb=b/1048576; return (mb>=100?Math.round(mb):mb.toFixed(1))+' MB'; };
       var _rw=_av.map(function(a){
@@ -9402,19 +9429,24 @@ async function _downloadMedia(id, man, _fresh){
     var _cn=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
     var _note=(_cn&&_cn.type==='cellular')?'<b style="color:#b45309">Şu an hücresel veri kullanıyorsunuz</b> — Wi-Fi\'ye geçmeniz önerilir.'
              :((_cn&&_cn.type==='wifi')?'Wi-Fi bağlantısındasınız.':'Hücresel verideyseniz Wi-Fi\'ye geçmeniz önerilir.');
-    /* __DL_FREE__ v1 (2026-07-30): BOŞ ALAN satırı. navigator.storage.estimate() = tarayıcının bu siteye
-       ayırdığı kotanın kalanı (cihazın toplam boş yeri DEĞİL) — tam olarak indirmenin sığacağı yer budur.
-       Desteklenmeyen/hata veren tarayıcıda satır HİÇ çıkmaz (uydurma sayı yazmayız). Dosya sığmıyorsa uyarır. */
+    /* __DL_FREE__ v2 (2026-07-30): DEPOLAMA satırı — ADLANDIRMA DÜZELTİLDİ.
+       navigator.storage.estimate() cihazın boş alanını VERMEZ; tarayıcının BU SİTEYE ayırdığı kotayı verir
+       (Chrome boş diskin bir kesri · Safari daha küçük bir oran → 339GB boş cihazda ~37GB görünür).
+       Web'de cihazın gerçek boş alanını veren API YOK. Kota yine de doğru ölçüt: indirmenin sığıp
+       sığmayacağını o belirler. Bu yüzden "kullanılabilir alan" değil, ne olduğu AÇIKÇA yazılır +
+       sitenin şu anki kullanımı da gösterilir. Ölçülemezse satır HİÇ çıkmaz (uydurma sayı yok). */
     var _freeTxt='';
     try{
       if(navigator.storage&&navigator.storage.estimate){
         var _es=await navigator.storage.estimate();
         if(_es&&_es.quota>0){
-          var _free=Math.max(0,(_es.quota||0)-(_es.usage||0));
-          var _fTxt=_free>=1073741824?((_free/1073741824).toFixed(1)+' GB'):(Math.round(_free/1048576)+' MB');
+          var _u=_es.usage||0, _free=Math.max(0,(_es.quota||0)-_u);
+          var _sz1=function(b){ return b>=1073741824?((b/1073741824).toFixed(1)+' GB'):(Math.round(b/1048576)+' MB'); };
           var _tight=_free < man.size*1.25;
-          _freeTxt='<div style="font-size:.82rem;margin-top:-10px;margin-bottom:14px;color:'+(_tight?'#b45309':'#718096')+';">'
-            +(_tight?'⚠️ ':'')+'Kullanılabilir alan: <b>'+_fTxt+'</b>'+(_tight?' — bu indirme için sınırda.':'')+'</div>';
+          _freeTxt='<div style="font-size:.8rem;margin-top:-10px;margin-bottom:14px;color:'+(_tight?'#b45309':'#718096')+';line-height:1.45">'
+            +(_tight?'⚠️ ':'')+'Bu site için kalan yer: <b>'+_sz1(_free)+'</b>'+(_u>0?(' · şu an kullanılan: '+_sz1(_u)):'')
+            +(_tight?' — bu indirme için sınırda.':'')
+            +'<br><span style="opacity:.75;font-size:.92em">(tarayıcının siteye ayırdığı kota — cihazın toplam boş alanı değil)</span></div>';
         }
       }
     }catch(_e){}
@@ -9462,7 +9494,7 @@ async function _downloadMedia(id, man, _fresh){
     if(!_hasSig(html)){ _closeOv(ov); showMsg('Geçersiz İçerik','İndirilen içerik kütüphane etiketi (LIBSIG) taşımıyor; reddedildi.'); return null; }
     _updProg(ov,'Kaydediliyor...',97);
     try{ await _put(id, html); }catch(e){ /* IDB yazilamadi (gizli mod) -> yine de ac */ }
-    _varSet(id,_sfx);   /* __LIB_VAR__: hangi kalite kurulu — bir dahaki seçimde ön-işaretlenir (TABAN id anahtarlı) */
+    _varSet(id,_sfx); _varSzSet(id, (html&&html.length)||man.size||0);   /* __LIB_VAR__: kurulu kalite + boyut (etiket ipucu) — TABAN id anahtarlı */
     try{ var _mv=r.headers.get('X-Media-Ver'); if(_mv) localStorage.setItem(cur().prefix+'ver_'+id,_mv); }catch(e){}   // __VER_CHECK__: sürüm damgasını sakla (güncelleme kontrolü için)
     _closeOv(ov); loadMediaState();
     return html;
@@ -9557,6 +9589,7 @@ async function openMedia(id) {
     /* __LIB_VAR__: bu özelliğin ÖNCESİNDE inen kopyalarda varyant kaydı yok → html elde OLDUĞU için
        bedavaya içerikten tespit edip geriye doldur (ek IDB okuması YOK). */
     try{ if(!_varGet(id)){ var _sn0=_varSniff(html); if(_sn0) _varSet(id,_sn0.sfx); } }catch(e){}
+    try{ if(!_varSzGet(id) && html && html.length) _varSzSet(id, html.length); }catch(e){}   /* __LIB_VAR__: boyutu da geriye doldur (etiket eski indirmelerde de çıksın) */
   }
   const isIOS=(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&navigator.standalone!==undefined;
   /* __SW_MODE__ v1 (SEÇMELİ; varsayılan=Blob): SW modu = medya GERÇEK site adresinden (./?m=id&lib=x) açılır →
@@ -10183,6 +10216,7 @@ function deleteMedia(id){
     o.querySelector('#_dm_y').onclick=async function(){
       closeModal(o);
       try{ await _del(id, cur().db); }catch(e){ showMsg('Hata','Silinemedi: '+((e&&e.message)||e)); return; }
+      try{ localStorage.removeItem(cur().prefix+'var_'+id); localStorage.removeItem(cur().prefix+'varsz_'+id); }catch(e){}   /* __LIB_VAR__: kurulu-varyant + boyut kaydı da gitsin (etiket kalmasın) */
       await loadMediaState();
       showMsg('Silindi','İndirilen içerik silindi. İlerleme ve yıldızlılar korundu — tekrar indirince geri gelir.');
     };
@@ -10264,10 +10298,10 @@ var LIB_VAR_MORE=[
 ];
 /* OTOMATİK KEŞİF: sunucuda bu id için hangi EK varyantlar var? mode=list zaten _srvNames'te
    oturum-önbellekli → EK AĞ İSTEĞİ YOK. Yüklemediğin varyant kutuda hiç görünmez. */
-function _varsExtraOnServer(id){
+function _varsPresent(id,list){
   var names=_srvNames[currentLib]||[], out=[];
-  for(var i=0;i<LIB_VAR_MORE.length;i++){
-    var v=LIB_VAR_MORE[i], full=id+v.sfx, hit=false;
+  for(var i=0;i<list.length;i++){
+    var v=list[i], full=id+v.sfx, hit=false;
     for(var j=0;j<names.length && !hit;j++){
       var n=names[j];
       if(n===full+'.html' || n.indexOf('('+full+')')>=0){ hit=true; break; }
@@ -10280,6 +10314,12 @@ function _varsExtraOnServer(id){
   }
   return out;
 }
+function _varsExtraOnServer(id){ return _varsPresent(id,LIB_VAR_MORE); }
+/* bu başlık için sunucuda KAÇ varyant var (3 kademe + ekler)? 1 ise etiket göstermeye gerek yok. */
+function _varsCount(id){ return _varsPresent(id,LIB_VARIANTS).length + _varsPresent(id,LIB_VAR_MORE).length; }
+/* indirilen kopyanın BOYUTU (etiket ipucunda gösterilir; indirme anında yazılır) */
+function _varSzGet(id){ try{ return +(localStorage.getItem(cur().prefix+'varsz_'+id)||0)||0; }catch(e){ return 0; } }
+function _varSzSet(id,n){ try{ if(n>0) localStorage.setItem(cur().prefix+'varsz_'+id,String(n)); }catch(e){} }
 /* ORTAK SEÇİCİ — hem 📤 atama hem indirme kalitesi için. Söz döndürür: SEÇİLEN SATIR NESNESİ, iptalde null.
    rows   : [{sfx, label, note, right, ...}] → 3 belirgin radyo satırı
    extras : [{sfx, label, right, ...}]       → altta KÜÇÜK açılır kutu; seçilirse radyoyu EZER
