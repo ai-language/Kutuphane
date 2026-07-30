@@ -8452,7 +8452,7 @@ async function readZip(buf) {
   for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65558); i--) {
     if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
   }
-  if (eocd < 0) throw new Error('Gecersiz ZIP dosyasi');
+  if (eocd < 0) throw new Error('Geçersiz ZIP dosyası');
   const count = view.getUint16(eocd + 8, true);
   let cdPos   = view.getUint32(eocd + 16, true);
   const files = [];
@@ -8477,7 +8477,7 @@ async function readZip(buf) {
     if (cmp === 0) {
       content = dec.decode(raw);
     } else if (cmp === 8) {
-      if (!('DecompressionStream' in window)) throw new Error('Bu cihaz ZIP acmayi desteklemiyor (iOS 16.4+ gerekli).');
+      if (!('DecompressionStream' in window)) throw new Error('Bu cihaz ZIP açmayı desteklemiyor (iOS 16.4+ gerekli).');
       const ds = new DecompressionStream('deflate-raw');
       const w  = ds.writable.getWriter();
       const r  = ds.readable.getReader();
@@ -8542,7 +8542,7 @@ let _blobUrl=null;
 let _manifest={};  // currentLib -> { itemId:{url,size} } ; sunucu indirme. Bos => no-op (mevcut akis aynen).
 async function loadMediaState() {
   if (await _isPrivate()) {
-    showMsg('Gizli Mod','Medya depolama gizli modda calismiyor. Normal sekme kullanin.'); return;
+    showMsg('Gizli Mod','Medya depolama gizli modda çalışmıyor. Normal sekme kullanın.'); return;
   }
   let keys; try { keys=await _keys(); } catch { return; }   // cur().db
   const man=_manifest[currentLib]||{};
@@ -8569,8 +8569,8 @@ async function loadMediaState() {
     if(hasLocal||_adm){
       if(!_ctr){ _ctr=document.createElement('span'); _ctr.className='media-ctrls'; el.insertAdjacentElement('afterend',_ctr); }
       var _h='';
-      if(hasLocal)_h+='<button type="button" class="media-del" title="Indirileni sil (ilerleme/yildiz korunur)">🗑</button>';
-      if(_adm)_h+='<button type="button" class="media-asg" title="Bu basliga dosya ata (yerel test + dogru-adli indir)">📤</button>';
+      if(hasLocal)_h+='<button type="button" class="media-del" title="İndirileni sil (ilerleme/yıldız korunur)">🗑</button>';
+      if(_adm)_h+='<button type="button" class="media-asg" title="Bu başlığa dosya ata (yerel test + doğru-adlı indir)">📤</button>';
       _ctr.innerHTML=_h;
       var _bd=_ctr.querySelector('.media-del'); if(_bd)_bd.onclick=(function(_id){return function(ev){ev.stopPropagation();deleteMedia(_id);};})(id);
       var _ba=_ctr.querySelector('.media-asg'); if(_ba)_ba.onclick=(function(_id){return function(ev){ev.stopPropagation();assignFileToTitle(_id);};})(id);
@@ -8949,7 +8949,7 @@ async function _sumOpen(id,sid,no,tot){
       if(_bgw){ var _bgU=function(){ var clr=o.classList.contains('bg-clear'); Array.prototype.forEach.call(_bgw.querySelectorAll('button'),function(b){ b.classList.toggle('on',(b.dataset.v==='clear')===clr); }); }; _bgU();
         Array.prototype.forEach.call(_bgw.querySelectorAll('button'),function(b){ b.onclick=function(ev){ ev.stopPropagation(); var clr=b.dataset.v==='clear'; o.classList.toggle('bg-clear',clr); try{localStorage.setItem('modal_bg',clr?'clear':'blur');}catch(e){} _bgU(); }; }); }
       o.querySelector('#_sm_cx').onclick=function(){ closeModal(o); };
-      o.querySelector('#_sm_dl').onclick=function(){ _sumDl(new Blob([txt],{type:'text/plain;charset=utf-8'}),title.replace(/[\\/:*?"<>|]/g,'_')+' - ozet'+(tot>1?(' '+no):'')+'.txt'); };
+      o.querySelector('#_sm_dl').onclick=function(){ _sumDl(new Blob([txt],{type:'text/plain;charset=utf-8'}),title.replace(/[\\/:*?"<>|]/g,'_')+' - özet'+(tot>1?(' '+no):'')+'.txt'); };
       var ed=o.querySelector('#_sm_ed'); if(ed) ed.onclick=function(){ closeModal(o); _sumEdit(id,sid,txt); };
     });
 }
@@ -9352,14 +9352,72 @@ async function _loadManifest(){
 async function _downloadMedia(id, man, _fresh){
   /* __DL_INFO__ ek: manifest'te boyut yoksa (genManifest size:0 yazar) sunucudan mode=ver ile GERÇEK boyut alınır (4sn timeout, sessiz düşüş) → dialog her indirmede çalışabilir; man.size'a yazılır=oturum içinde tekrar sorulmaz */
   if(man && !(man.size>0) && !_fresh){ try{ var _vsz=await _fetchSize(id); if(_vsz>0) man.size=_vsz; }catch(e){} }
+  /* ═══ __LIB_VAR__ v1: İNDİRME ANINDA KALİTE SEÇİMİ ═══════════════════════════════════════════════
+     Varyantlar sunucuya AYRI dosya olarak yüklenir: "(id)" · "(id__aac96m)" · "(id__aac64m)".
+     Burada her varyantın GERÇEK boyutu mode=ver ile PARALEL sorulur. YÜKLENMEMİŞ varyant listede
+     hiç görünmez ⇒ "en yakına düş" davranışı kendiliğinden olur, ek kod/worker değişikliği YOK.
+     Ağ id'si = id+sfx · YEREL kayıt (IDB/pos_/stars_/✓/özet) HER ZAMAN taban id ⇒ ilerleme korunur.
+     _fresh (güncelleme) akışı kendi onayından geçmiştir → kurulu varyant aynen yenilenir, sorulmaz. */
+  var _sfx='', _skipDlg=false;
+  if(_fresh){ _sfx=_varGet(id); }
+  else if(LIB_VARIANTS.length>1 && _verLive()){
+    var _sizes=[];
+    try{ _sizes=await Promise.all(LIB_VARIANTS.map(function(v){ return _fetchSize(id+v.sfx).catch(function(){return 0;}); })); }
+    catch(e){ _sizes=[]; }
+    var _av=[];
+    for(var _k=0;_k<LIB_VARIANTS.length;_k++) if(_sizes[_k]>0) _av.push({v:LIB_VARIANTS[_k],sz:_sizes[_k]});
+    if(_av.length>1 || (_av.length===1 && _varsExtraOnServer(id).length)){
+      /* boş alan + bağlantı notu bu ekrana taşınır → İKİ ÜST ÜSTE dialog olmaz, uyarı yine HER indirmede çıkar */
+      var _fx='', _cn2=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+      var _nt2=(_cn2&&_cn2.type==='cellular')?'<b style="color:#b45309">Hücresel veri kullanıyorsunuz</b> — Wi-Fi önerilir.'
+              :((_cn2&&_cn2.type==='wifi')?'Wi-Fi bağlantısındasınız.':'Hücresel verideyseniz Wi-Fi önerilir.');
+      try{ if(navigator.storage&&navigator.storage.estimate){ var _e2=await navigator.storage.estimate();
+        if(_e2&&_e2.quota>0){ var _fr=Math.max(0,(_e2.quota||0)-(_e2.usage||0));
+          _fx='<br>Kullanılabilir alan: <b>'+(_fr>=1073741824?((_fr/1073741824).toFixed(1)+' GB'):(Math.round(_fr/1048576)+' MB'))+'</b>'; } } }catch(_e){}
+      var _cnt=_varGet(id);            /* o an KURULU varyant → ön-seçim (3'lünün dışındaysa kutuya yerleşir) */
+      var _mbT=function(b){ var mb=b/1048576; return (mb>=100?Math.round(mb):mb.toFixed(1))+' MB'; };
+      var _rw=_av.map(function(a){
+        return { sfx:a.v.sfx, sz:a.sz, label:a.v.label,
+                 note:a.v.note+(a.v.sfx===_cnt?' · şu an kurulu':''), right:_mbT(a.sz) }; });
+      /* EK VARYANTLAR: sunucudaki asset adlarından KEŞFEDİLİR (ek ağ isteği yok), sonra boyutları alınır */
+      var _exv=_varsExtraOnServer(id), _exr=[];
+      if(_exv.length){
+        var _exs=await Promise.all(_exv.map(function(v){ return _fetchSize(id+v.sfx).catch(function(){return 0;}); }));
+        for(var _k3=0;_k3<_exv.length;_k3++) if(_exs[_k3]>0)
+          _exr.push({ sfx:_exv[_k3].sfx, sz:_exs[_k3], label:_exv[_k3].label, right:_mbT(_exs[_k3]) });
+      }
+      var _pick=await _varPick('İndirme kalitesi', _nt2+_fx, _rw, _cnt, 'İndir', _exr);
+      if(!_pick) return null;
+      _sfx=_pick.sfx||''; man.size=_pick.sz; _skipDlg=true;   /* seçim ekranı zaten boyut+bağlantı+alan gösterdi */
+    } else if(_av.length===1){ _sfx=_av[0].v.sfx; man.size=_av[0].sz; }
+  }
   /* __DL_INFO__ v1 (2026-07-10): indirme ÖNCESİ boyut + bağlantı tavsiyesi. Boyut=manifest man.size (yoksa dialog atlanır, akış eski).
      Bağlantı türü tespiti YALNIZ Chromium/Android'de mümkün (navigator.connection.type); iOS Safari'de hücresel/Wi-Fi API'si YOK → tespitsiz genel not.
-     _fresh (güncelleme) akışı zaten kendi onayından geçti → ikinci dialog sorulmaz. Eşik 20MB: küçük dosyada sürtünme yaratma. */
-  if(man && man.size>0 && man.size>=20*1024*1024 && !_fresh){
+     _fresh (güncelleme) akışı zaten kendi onayından geçti → ikinci dialog sorulmaz.
+     __DL_ALWAYS__ v1 (2026-07-30): 20MB EŞİĞİ KALDIRILDI — kullanıcı isteği: mobil veri uyarısı HER indirmede çıksın
+     (ses küçültmeden sonra dosyalar 20MB'ın altına indi ve uyarı hiç görünmüyordu = hücresel veri koruması kayboluyordu).
+     man.size===0 durumu (sunucu/kod yok, gerçek boyut alınamadı) hâlâ atlanır: boyutsuz dialog kullanıcıyı boşa bekletir. */
+  if(man && man.size>0 && !_fresh && !_skipDlg){
     var _mb=man.size/1048576, _mbTxt=_mb>=100?Math.round(_mb)+' MB':_mb.toFixed(1)+' MB';
     var _cn=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
     var _note=(_cn&&_cn.type==='cellular')?'<b style="color:#b45309">Şu an hücresel veri kullanıyorsunuz</b> — Wi-Fi\'ye geçmeniz önerilir.'
              :((_cn&&_cn.type==='wifi')?'Wi-Fi bağlantısındasınız.':'Hücresel verideyseniz Wi-Fi\'ye geçmeniz önerilir.');
+    /* __DL_FREE__ v1 (2026-07-30): BOŞ ALAN satırı. navigator.storage.estimate() = tarayıcının bu siteye
+       ayırdığı kotanın kalanı (cihazın toplam boş yeri DEĞİL) — tam olarak indirmenin sığacağı yer budur.
+       Desteklenmeyen/hata veren tarayıcıda satır HİÇ çıkmaz (uydurma sayı yazmayız). Dosya sığmıyorsa uyarır. */
+    var _freeTxt='';
+    try{
+      if(navigator.storage&&navigator.storage.estimate){
+        var _es=await navigator.storage.estimate();
+        if(_es&&_es.quota>0){
+          var _free=Math.max(0,(_es.quota||0)-(_es.usage||0));
+          var _fTxt=_free>=1073741824?((_free/1073741824).toFixed(1)+' GB'):(Math.round(_free/1048576)+' MB');
+          var _tight=_free < man.size*1.25;
+          _freeTxt='<div style="font-size:.82rem;margin-top:-10px;margin-bottom:14px;color:'+(_tight?'#b45309':'#718096')+';">'
+            +(_tight?'⚠️ ':'')+'Kullanılabilir alan: <b>'+_fTxt+'</b>'+(_tight?' — bu indirme için sınırda.':'')+'</div>';
+        }
+      }
+    }catch(_e){}
     var _go=await new Promise(function(res){
       var ovc=document.createElement('div');
       ovc.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;';
@@ -9367,6 +9425,7 @@ async function _downloadMedia(id, man, _fresh){
         +'<div style="font-size:1.5rem;margin-bottom:10px;">⬇️</div>'
         +'<div style="font-weight:700;margin-bottom:8px;color:#1a202c;font-size:1rem;">İndirme: '+_mbTxt+'</div>'
         +'<div style="color:#4a5568;font-size:.88rem;margin-bottom:20px;line-height:1.55;">'+_note+'<br>İçerik bir kez iner, sonrası çevrimdışı çalışır.</div>'
+        +_freeTxt   /* __DL_FREE__: yalnız ölçülebildiyse dolu gelir */
         +'<div style="display:flex;gap:10px;">'
           +'<button id="_dc" style="flex:1;padding:11px;border:none;border-radius:9px;background:#f0f4f8;color:#4a5568;font-weight:600;font-size:.88rem;cursor:pointer;">Vazgeç</button>'
           +'<button id="_do" style="flex:1;padding:11px;border:none;border-radius:9px;background:'+cur().c+';color:#fff;font-weight:600;font-size:.88rem;cursor:pointer;">İndir</button>'
@@ -9380,7 +9439,14 @@ async function _downloadMedia(id, man, _fresh){
   var ov=_showProg('Sunucudan indiriliyor...',2);
   try{
     var _key=''; try{_key=localStorage.getItem('lib_dl_key')||'';}catch(e){}
-    var _u=man.url+(man.url.indexOf('?')>=0?'&':'?')+'k='+encodeURIComponent(_key)+'&dev='+encodeURIComponent(_devId())+(_fresh?'&fresh=1':'');
+    /* __LIB_VAR__: ağ id'sine varyant eki eklenir. man.url'de id= varsa yerinde değiştirilir (çoklu-host
+       URL'leri korunur); yoksa Worker adresinden kurulur. _sfx boşsa URL BİREBİR eski hâlidir. */
+    var _mu=man.url;
+    if(_sfx){
+      var _mu2=_mu.replace(/([?&]id=)[^&]*/, '$1'+encodeURIComponent(id+_sfx));
+      _mu = (_mu2!==_mu) ? _mu2 : (LIB_AUTH_URL+'/?id='+encodeURIComponent(id+_sfx));
+    }
+    var _u=_mu+(_mu.indexOf('?')>=0?'&':'?')+'k='+encodeURIComponent(_key)+'&dev='+encodeURIComponent(_devId())+(_fresh?'&fresh=1':'');
     var r=await fetch(_u);
     if(r.status===403||r.status===401){ _closeOv(ov); try{showKeyModal();}catch(e){} return null; }   // gecerli kod yok -> dogrudan sifre modalini ac
     if(r.status===404){ _closeOv(ov); showMsg('İçerik Mevcut Değil','Bu içerik henüz mevcut değil. Daha sonra tekrar kontrol edin.'); return null; }
@@ -9396,6 +9462,7 @@ async function _downloadMedia(id, man, _fresh){
     if(!_hasSig(html)){ _closeOv(ov); showMsg('Geçersiz İçerik','İndirilen içerik kütüphane etiketi (LIBSIG) taşımıyor; reddedildi.'); return null; }
     _updProg(ov,'Kaydediliyor...',97);
     try{ await _put(id, html); }catch(e){ /* IDB yazilamadi (gizli mod) -> yine de ac */ }
+    _varSet(id,_sfx);   /* __LIB_VAR__: hangi kalite kurulu — bir dahaki seçimde ön-işaretlenir (TABAN id anahtarlı) */
     try{ var _mv=r.headers.get('X-Media-Ver'); if(_mv) localStorage.setItem(cur().prefix+'ver_'+id,_mv); }catch(e){}   // __VER_CHECK__: sürüm damgasını sakla (güncelleme kontrolü için)
     _closeOv(ov); loadMediaState();
     return html;
@@ -9468,7 +9535,7 @@ async function _maybeOfferUpdate(id){
 }
 
 async function openMedia(id) {
-  let html; try { html=await _get(id); } catch(e) { showMsg('Hata','Medya acilamadi: '+e.message); return; }
+  let html; try { html=await _get(id); } catch(e) { showMsg('Hata','Medya açılamadı: '+e.message); return; }
   if (!html) {
     // IDB'de yok -> sunucudan indir + cache'le (sonraki acilis offline).
     // Manifest varsa ONCE oradan (cok-host / boyut korunur); yoksa -> file://'da tarayici yerel json
@@ -9487,6 +9554,9 @@ async function openMedia(id) {
        saniyeler süren bedava yavaşlık (özellikle iPhone). Artık yalnız GERÇEKTEN güncellenince
        (_maybeOfferUpdate true dönerse) yeniden okunur. */
     try { if(await _maybeOfferUpdate(id)===true){ const _u2=await _get(id); if(_u2) html=_u2; } } catch(e){}
+    /* __LIB_VAR__: bu özelliğin ÖNCESİNDE inen kopyalarda varyant kaydı yok → html elde OLDUĞU için
+       bedavaya içerikten tespit edip geriye doldur (ek IDB okuması YOK). */
+    try{ if(!_varGet(id)){ var _sn0=_varSniff(html); if(_sn0) _varSet(id,_sn0.sfx); } }catch(e){}
   }
   const isIOS=(/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&navigator.standalone!==undefined;
   /* __SW_MODE__ v1 (SEÇMELİ; varsayılan=Blob): SW modu = medya GERÇEK site adresinden (./?m=id&lib=x) açılır →
@@ -9687,9 +9757,9 @@ async function handleZipFile(file) {
   const ov=_showProg('ZIP okunuyor...',10);
   try {
     const buf=await file.arrayBuffer();
-    _updProg(ov,'Dosyalar cikariliyor...',40);
+    _updProg(ov,'Dosyalar çıkarılıyor...',40);
     const zf=await readZip(buf);
-    if (!zf.length) { _closeOv(ov); showMsg('Bos ZIP','ZIP icinde HTML bulunamadi.'); return; }
+    if (!zf.length) { _closeOv(ov); showMsg('Bos ZIP','ZIP içinde HTML bulunamadı.'); return; }
     _updProg(ov,'Eslestiriliyor...',70);
     const items=_allItems(), pending=[]; let _rej=0;
     for (const f of zf) {
@@ -10125,11 +10195,166 @@ function deleteMedia(id){
 var _assignId=null;
 /* İndirme dosya adı: "<başlık> (<id>).html" → GitHub Release'de başlıktan tanınır,
    Worker parantez içindeki id ile bulur. Başlık bulunamazsa "<id>.html"e düşer. */
-function _dlName(id){
+/* ═══ __LIB_VAR__ v1 (2026-07-30): SES VARYANTLARI — indirme anında kalite seçimi ═════════════════
+   NEDEN "(id__sfx)" BİÇİMİ — worker'ın GERÇEK kodu kopyalanıp test edildi (worker.js:131-133):
+     idRe = (^|[^A-Za-z0-9_]) + id + ([^A-Za-z0-9_]|$)
+   "(item_0_0_0__aac96m)" içinde id'den sonra '_' gelir → '_' [A-Za-z0-9_] sınıfındadır → BELİRTEÇ
+   EŞLEŞMESİ BAŞARISIZ olur ⇒ taban istek varyantı ASLA yakalamaz. Test: item_0_0_0 → yalnız taban ✔
+   "(id) [sfx]" biçimi ise ÇAKIŞIR (test edildi: taban istek ikisini de yakaladı) → köşeli parantez YASAK.
+   Sonuç: WORKER'A DOKUNULMAZ (redeploy yok) · MANIFEST DEĞİŞMEZ (url'deki id istemcide değiştirilir,
+   boyut zaten mode=ver'den gelir) · id öneki aynı kaldığı için varyant AYNI Release'e düşer (idTag).
+   YEREL ANAHTARLAR (IDB / pos_ / stars_ / ✓ / özet) HER ZAMAN TABAN id'de kalır ⇒ kalite değiştirmek
+   ilerlemeyi ve yıldızları BOZMAZ. */
+var LIB_VARIANTS=[
+  { sfx:'',         label:'Yüksek — orijinal',        note:'en iyi ses · motor/analiz için usta' },
+  { sfx:'__aac96m', label:'Standart — AAC 96k mono',  note:'⭐ önerilen · konuşmada şeffaf' },
+  { sfx:'__aac64m', label:'Küçük — AAC 64k mono',     note:'en az yer · hafif kalite düşüşü' }
+];
+function _varOf(sfx){ for(var i=0;i<LIB_VARIANTS.length;i++) if(LIB_VARIANTS[i].sfx===sfx) return LIB_VARIANTS[i]; return null; }
+/* ═══ İÇERİKTEN VARYANT TESPİTİ (ada bakmaz — dosya yeniden adlandırılmış olsa bile çalışır) ══════
+   HTML'in kendisi her şeyi taşıyor:
+     • mime          → kodek        (audio/x-m4a|mp4 = AAC · audio/mpeg = MP3)
+     • base64 uzunluğu → ses baytı  (×0.75)
+     • WORDS son .end  → süre
+     ⇒ bit hızı = bayt×8/süre.  Formül gerçek dosyalarda ±%2 doğrulandı.
+   SINIR: kanal sayısı (mono/stereo) çözmeden anlaşılamaz → aynı bit hızındaki mono varyant seçilir
+   (kaynaklarımız dual-mono). Kullanıcı ek kutudan düzeltebilir. Belirsizse null döner. */
+function _varSniff(html){
+  try{
+    var m=html.match(/var _d="data:([^;"]+);base64,([^"]*)"/); if(!m) return null;
+    var codec=/mpeg|mp3/i.test(m[1])?'mp3':'aac';
+    var bytes=m[2].length*0.75;
+    var w=html.match(/"end"\s*:\s*([\d.]+)\s*\}\s*\]/); var dur=w?parseFloat(w[1]):0;
+    if(!(dur>30)||!(bytes>0)) return null;
+    var br=bytes*8/dur/1000;
+    var tiers=[48,64,96,128,192,257,320], best=tiers[0];
+    for(var i=0;i<tiers.length;i++) if(Math.abs(tiers[i]-br)<Math.abs(best-br)) best=tiers[i];
+    if(best>=200) return { codec:codec, br:Math.round(br), sfx:'', amb:[], sure:true };   /* orijinal/yüksek */
+    /* BELİRSİZLİK: aynı kodek+bit hızında mono VE stereo varyant varsa ikisi de olabilir.
+       Kütüphane kanal sayısını ÖLÇEMEZ (ffmpeg yok; 20 dk sesi çözmek telefonda ~200MB PCM demek).
+       Bu yüzden tahmin olarak MONO seçilir ama belirsizlik KULLANICIYA SÖYLENİR. Kesin ölçüm:
+       ana app → repair → "🎚️ Ses" satırı (ffmpeg /audioinfo veya tarayıcı PCM ile L−R RMS). */
+    var mono='__'+codec+best+'m', stereo='__'+codec+best+'s', amb=[];
+    if(_varOf(mono)||_varMoreOf(mono)) amb.push(mono);
+    if(_varOf(stereo)||_varMoreOf(stereo)) amb.push(stereo);
+    return { codec:codec, br:Math.round(br), sfx:(amb[0]||''), amb:amb, sure:amb.length<2 };
+  }catch(e){ return null; }
+}
+function _varMoreOf(sfx){ for(var i=0;i<LIB_VAR_MORE.length;i++) if(LIB_VAR_MORE[i].sfx===sfx) return LIB_VAR_MORE[i]; return null; }
+/* dosya adından varyant tespiti: "(id__aac96m)" veya ses-varyant.js'in " [aac96m]" biçimi */
+function _varDetect(fname){
+  var s=(fname||'').toLowerCase();
+  for(var i=LIB_VARIANTS.length-1;i>=0;i--){ var v=LIB_VARIANTS[i]; if(!v.sfx) continue;
+    var id=v.sfx.replace(/^__/,''); if(s.indexOf('__'+id)>=0||s.indexOf('['+id+']')>=0) return v.sfx; }
+  return '';
+}
+/* DİĞER VARYANTLAR — 3 belirgin kademenin dışındakiler. Seçicide yer kaplamasın diye küçük bir
+   açılır kutuda toplanır (üretim arayüzündeki kutunun aynısı). Seçim localStorage'da hatırlanır. */
+var LIB_VAR_MORE=[
+  { sfx:'__aac192s', label:'AAC 192k stereo' },
+  { sfx:'__aac128m', label:'AAC 128k mono'   },
+  { sfx:'__aac128s', label:'AAC 128k stereo' },
+  { sfx:'__aac96s',  label:'AAC 96k stereo'  },
+  { sfx:'__aac48m',  label:'AAC 48k mono'    },
+  { sfx:'__mp3192s', label:'MP3 192k stereo' },
+  { sfx:'__mp3128m', label:'MP3 128k mono'   },
+  { sfx:'__mp3128s', label:'MP3 128k stereo' },
+  { sfx:'__mp396m',  label:'MP3 96k mono'    },
+  { sfx:'__mp364m',  label:'MP3 64k mono'    }
+];
+/* OTOMATİK KEŞİF: sunucuda bu id için hangi EK varyantlar var? mode=list zaten _srvNames'te
+   oturum-önbellekli → EK AĞ İSTEĞİ YOK. Yüklemediğin varyant kutuda hiç görünmez. */
+function _varsExtraOnServer(id){
+  var names=_srvNames[currentLib]||[], out=[];
+  for(var i=0;i<LIB_VAR_MORE.length;i++){
+    var v=LIB_VAR_MORE[i], full=id+v.sfx, hit=false;
+    for(var j=0;j<names.length && !hit;j++){
+      var n=names[j];
+      if(n===full+'.html' || n.indexOf('('+full+')')>=0){ hit=true; break; }
+      var p=n.indexOf(full);
+      while(p>=0){ var b=p===0?'':n.charAt(p-1), a=n.charAt(p+full.length)||'';
+        if(!/[A-Za-z0-9_]/.test(b) && !/[A-Za-z0-9_]/.test(a)){ hit=true; break; }
+        p=n.indexOf(full,p+1); }
+    }
+    if(hit) out.push(v);
+  }
+  return out;
+}
+/* ORTAK SEÇİCİ — hem 📤 atama hem indirme kalitesi için. Söz döndürür: SEÇİLEN SATIR NESNESİ, iptalde null.
+   rows   : [{sfx, label, note, right, ...}] → 3 belirgin radyo satırı
+   extras : [{sfx, label, right, ...}]       → altta KÜÇÜK açılır kutu; seçilirse radyoyu EZER
+   preSfx : ÖN-İŞARETLENECEK varyant eki ('' = taban). NEREDEN GELİR:
+              📤 atama  → dosyanın İÇERİĞİNDEN okunan varyant (_varSniff)
+              indirme   → o an KURULU olan varyant (_varGet)
+            preSfx bir EK varyanta denk gelirse KUTUYA yerleşir (radyolar solar).
+            ⚠ "son seçimi hatırla" BİLİNÇLİ OLARAK YOK: elimizde gerçek bilgi (tespit/kurulu) varken
+            eski bir tercih onu çelişkiye düşürürdü. Kutu her zaman GERÇEĞİ gösterir. */
+function _varPick(titleTxt, subTxt, rows, preSfx, okTxt, extras){
+  extras = extras || []; preSfx = preSfx || '';
+  var preIdx=0, preX=-1;
+  for(var _pi=0;_pi<rows.length;_pi++) if(rows[_pi].sfx===preSfx) preIdx=_pi;
+  for(var _px=0;_px<extras.length;_px++) if(extras[_px].sfx===preSfx) preX=_px;
+  return new Promise(function(res){
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+    var h='<div style="background:#fff;border-radius:14px;padding:20px 18px;max-width:340px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3);">'
+      +'<div style="font-weight:700;margin-bottom:4px;color:#1a202c;font-size:1rem;text-align:center;">'+titleTxt+'</div>'
+      +'<div style="color:#718096;font-size:.8rem;margin-bottom:12px;text-align:center;line-height:1.45;">'+(subTxt||'')+'</div>';
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i], on=(i===preIdx);
+      h+='<label data-i="'+i+'" style="display:flex;align-items:center;gap:9px;padding:9px 10px;margin-bottom:6px;border-radius:9px;cursor:pointer;'
+        +'border:1.5px solid '+(on?cur().c:'#e2e8f0')+';background:'+(on?'rgba(0,0,0,.03)':'#fff')+';">'
+        +'<input type="radio" name="_vp" value="'+i+'"'+(on?' checked':'')+' style="accent-color:'+cur().c+'">'
+        +'<span style="flex:1;min-width:0"><b style="font-size:.87rem;color:#1a202c">'+r.label+'</b>'
+        +(r.note?'<br><span style="font-size:.74rem;color:#718096">'+r.note+'</span>':'')+'</span>'
+        +(r.right?'<span style="font-size:.82rem;font-weight:700;color:#4a5568;white-space:nowrap">'+r.right+'</span>':'')
+        +'</label>';
+    }
+    /* EK VARYANTLAR — tek satırlık küçük kutu. Bir şey seçilirse radyo seçimini EZER. */
+    if(extras.length){
+      h+='<div style="display:flex;align-items:center;gap:7px;margin:2px 0 0;font-size:.76rem;color:#718096">'
+        +'<span style="white-space:nowrap">Diğer:</span>'
+        +'<select id="_vpx" style="flex:1;min-width:0;font-size:.78rem;padding:4px 6px;border-radius:7px;border:1px solid #cbd5e0;background:#fff;color:#2d3748">'
+        +'<option value="-1"'+(preX<0?' selected':'')+'>— yukarıdakini kullan —</option>';
+      for(var e=0;e<extras.length;e++)   /* tespit/kurulu EK varyanta denk geldiyse burada ön-seçili gelir */
+        h+='<option value="'+e+'"'+(e===preX?' selected':'')+'>'+extras[e].label+(extras[e].right?('  '+extras[e].right):'')+'</option>';
+      h+='</select></div>';
+    }
+    h+='<div style="display:flex;gap:10px;margin-top:12px;">'
+      +'<button id="_vpc" style="flex:1;padding:11px;border:none;border-radius:9px;background:#f0f4f8;color:#4a5568;font-weight:600;font-size:.88rem;cursor:pointer;">Vazgeç</button>'
+      +'<button id="_vpo" style="flex:1;padding:11px;border:none;border-radius:9px;background:'+cur().c+';color:#fff;font-weight:600;font-size:.88rem;cursor:pointer;">'+(okTxt||'İndir')+'</button>'
+      +'</div></div>';
+    ov.innerHTML=h;
+    document.body.appendChild(ov);
+    var xs=ov.querySelector('#_vpx');
+    function paint(){
+      var xOn = xs && +xs.value>=0;                       /* ek kutu aktifse radyo satırları soluklaşır */
+      var ls=ov.querySelectorAll('label[data-i]');
+      for(var k=0;k<ls.length;k++){ var sel=!xOn && ls[k].querySelector('input').checked;
+        ls[k].style.borderColor=sel?cur().c:'#e2e8f0'; ls[k].style.background=sel?'rgba(0,0,0,.03)':'#fff';
+        ls[k].style.opacity=xOn?'.45':'1'; }
+    }
+    ov.addEventListener('change',paint);
+    if(xs) paint();
+    ov.querySelector('#_vpc').onclick=function(){ document.body.removeChild(ov); res(null); };
+    ov.querySelector('#_vpo').onclick=function(){
+      var out;
+      if(xs && +xs.value>=0){ out=extras[+xs.value]; }
+      else { var c=ov.querySelector('input[name=_vp]:checked'); out=rows[c?+c.value:preIdx]; }
+      document.body.removeChild(ov); res(out||null);
+    };
+  });
+}
+/* indirilen kopyanın hangi varyant olduğunu sakla (salt-gösterim; taban id anahtarlı) */
+function _varGet(id){ try{ return localStorage.getItem(cur().prefix+'var_'+id)||''; }catch(e){ return ''; } }
+function _varSet(id,sfx){ try{ localStorage.setItem(cur().prefix+'var_'+id,sfx||''); }catch(e){} }
+
+function _dlName(id,sfx){
   var t='';
   try{ var el=document.querySelector('.item-title[data-id="'+id+'"]'); if(el) t=(el.textContent||'').replace(/[☁️\s]+$/,'').trim(); }catch(e){}
   t=t.replace(/[\\\/:*?"<>|()]+/g,' ').replace(/\s+/g,' ').trim().slice(0,80);
-  return t ? (t+' ('+id+').html') : (id+'.html');
+  var full=id+(sfx||'');                       /* (id__aac96m) — '__' ZORUNLU, çakışma testi yukarıda */
+  return t ? (t+' ('+full+').html') : (full+'.html');
 }
 function assignFileToTitle(id){ _assignId=id; var i=document.getElementById('_assign_input'); if(i){ i.value=''; i.click(); } }
 async function _handleAssign(fl){
@@ -10137,14 +10362,44 @@ async function _handleAssign(fl){
   var id=_assignId, f=fl[0], html='';
   try{ html=await f.text(); }catch(e){ showMsg('Hata','Dosya okunamadı.'); return; }
   if(!_hasSig(html)){ showMsg('Etiketsiz Dosya','Bu dosya kütüphane etiketi (LIBSIG) içermiyor. Önce hub\'daki 🏷 Etiketle ile etiketle.'); return; }
-  try{ await _put(id, html); }catch(e){ /* IDB yazilamazsa yine de indir */ }
+  /* __LIB_VAR__: bu dosya hangi ses varyantı? Dosya adından otomatik tespit edilir, kullanıcı düzeltebilir.
+     Seçim yalnız YÜKLEME ADINI belirler; yerel kayıt her zaman TABAN id'ye yapılır. */
+  /* ÖNCELİK: DOSYA ADI > içerik. Sebebi: repair/ses-varyant.js adı "(id__aac96m)" diye TAM yazıyor —
+     kanal bilgisi dahil. İçerik ise yalnız kodek+bit hızı verir, mono/stereo'yu AYIRAMAZ.
+     Ad yoksa/kalıba uymuyorsa içeriğe düşülür (o zaman kanal belirsizliği kullanıcıya bildirilir). */
+  var _sn=_varSniff(html), _byName=_varDetect(f.name);
+  var _sfx=_byName||(_sn&&_sn.sfx)||'';
+  var _rows=LIB_VARIANTS.map(function(v){ return { sfx:v.sfx, label:v.label, note:v.note, right:v.sfx?('('+v.sfx.replace(/^__/,'')+')'):'(taban)' }; });
+  var _ex=LIB_VAR_MORE.map(function(v){ return { sfx:v.sfx, label:v.label }; });
+  /* NE BİLİYORUZ / NE BİLMİYORUZ — açıkça yaz. Kanal (mono/dual-mono/stereo) burada ÖLÇÜLEMEZ. */
+  var _sub=f.name;
+  if(_sn) _sub+='<br>İçerikten okundu: <b>'+_sn.codec.toUpperCase()+' ~'+_sn.br+' kbps</b>';
+  if(_byName){
+    _sub+='<br><b style="color:#22c55e">✔ Dosya adından kesin:</b> '+_byName.replace(/^__/,'');
+    if(_sn&&_sn.amb.length&&_sn.amb.indexOf(_byName)<0)
+      _sub+='<br><b style="color:#b45309">⚠ Ad ile içerik UYUŞMUYOR</b> ('+_sn.br+' kbps okundu) — kontrol et.';
+  } else if(_sn && !_sn.sure){
+    _sub+='<br><b style="color:#b45309">⚠ Kanal belirsiz:</b> '+_sn.amb.map(function(s){return s.replace(/^__/,'');}).join(' veya ')
+      +' olabilir. Kütüphane kanal sayısını ÖLÇEMEZ (ffmpeg yok) — <b>mono</b> varsayıldı.'
+      +'<br>Kesin bilgi: ana app → repair → "🎚️ Ses" satırı (ffmpeg ile L−R ölçer).';
+  } else if(!_sn){
+    _sub+='<br><b style="color:#b45309">⚠ İçerikten okunamadı</b> — varyantı elle seç.';
+  }
+  _sub+='<br>Yükleme adı buna göre kurulur.';
+  /* tespit edilen varyant 3'lünün DIŞINDAYSA (örn. mp3128m) ön-seçim KUTUYA yerleşir — _varPick halleder */
+  var _selR=await _varPick('Bu dosya hangi ses varyantı?', _sub, _rows, _sfx, 'Adlandır + indir', _ex);
+  if(!_selR) return;
+  _sfx=_selR.sfx||'';
+  try{ if(!_sfx) await _put(id, html); }catch(e){ /* IDB yazilamazsa yine de indir */ }   /* yerel test kopyası: yalnız ORİJİNAL saklanır */
   // Release'e yüklemek için DOĞRU adla indir
-  var _fn=_dlName(id);
+  var _fn=_dlName(id,_sfx);
   var u=URL.createObjectURL(new Blob([html],{type:'text/html'}));
   var a=document.createElement('a'); a.href=u; a.download=_fn; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function(){URL.revokeObjectURL(u);},5000);
   await loadMediaState();
-  showMsg('Atandı','Bu başlığa bağlandı.\n• Yerelde test edebilirsin (başlığa tıkla).\n• Release\'e "'+_fn+'" adıyla yükle (bu dosya indi).');
+  showMsg('Atandı', (_sfx ? ('Varyant: '+_selR.label+'\n• Yerel kopya YAZILMADI (varyant yalnız sunucu içindir).\n')
+                          : 'Bu başlığa bağlandı.\n• Yerelde test edebilirsin (başlığa tıkla).\n')
+    + '• Release\'e "'+_fn+'" adıyla yükle (bu dosya indi).');
 }
 
 /* ===== MANIFEST ÜRET (admin) — id'leri elle yazmadan; başlık listesinden otomatik ===== */
@@ -10231,14 +10486,14 @@ function importSyncCode() {
           saveToLocalStorage(); updateCounts(); closeModal(ov2);
           var posCount=Object.keys(pos).length, starCount=Object.keys(stars).length;
           var _m='Tikler basariyla aktarildi.';
-          if(posCount>0)_m+=' '+posCount+' medya konumu yuklendi.';
-          if(starCount>0)_m+=' '+starCount+' podcast yildizlilari yuklendi.';
+          if(posCount>0)_m+=' '+posCount+' medya konumu yüklendi.';
+          if(starCount>0)_m+=' '+starCount+' podcast yıldızlıları yüklendi.';
           /* __MYNOTE__: not ASLA sessizce EZİLMEZ — yerelde farklı bir not varsa kullanıcı seçer. */
           var _lo=_myNoteGet();
-          if(note===null || note===_lo){ if(note&&note===_lo)_m+=' (Notların zaten aynı.)'; showMsg('Basarili',_m); }
-          else if(!_lo){ _myNoteSet(note); showMsg('Basarili',_m+' Notların da yüklendi.'); }
+          if(note===null || note===_lo){ if(note&&note===_lo)_m+=' (Notların zaten aynı.)'; showMsg('Başarılı',_m); }
+          else if(!_lo){ _myNoteSet(note); showMsg('Başarılı',_m+' Notların da yüklendi.'); }
           else { _myNoteConflict(note,_lo,_m); }
-        }catch(e){var ap=ov2.querySelector('#sc-ap');ap.textContent='Gecersiz kod!';setTimeout(()=>{ap.textContent='Uygula';},2000);}
+        }catch(e){var ap=ov2.querySelector('#sc-ap');ap.textContent='Geçersiz kod!';setTimeout(()=>{ap.textContent='Uygula';},2000);}
       };
       ov2.querySelector('#sc-ca').onclick=()=>closeModal(ov2);
     }
@@ -10282,7 +10537,7 @@ function showStarsLibrary(){
   var st=_collectStars();
   var ids=Object.keys(st).sort(function(a,b){return _maxTs(st[b])-_maxTs(st[a]);});
   var body='';
-  if(!ids.length){body='<p style="text-align:center;opacity:.6;padding:20px 0;">Henuz yildizli kelime yok.<br>Bir podcast acip kelimelere uzun basarak yildiz ekleyin.</p>';}
+  if(!ids.length){body='<p style="text-align:center;opacity:.6;padding:20px 0;">Henüz yıldızlı kelime yok.<br>Bir podcast açıp kelimelere uzun basarak yıldız ekleyin.</p>';}
   else{
     ids.forEach(function(id){
       body+='<div style="margin-bottom:13px;"><div style="font-weight:700;color:'+cur().c+';font-size:0.92rem;margin-bottom:5px;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">'+_escH(_podName(id))+'</div>';
@@ -10297,16 +10552,16 @@ function showStarsLibrary(){
       body+='</div>';
     });
   }
-  var html='<h3>⭐ Yildizlilar</h3><div style="max-height:54vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:8px 0 4px;text-align:left;">'+body+'</div><div class="modal-btns">'+(ids.length?'<button class="btn-primary" id="_stdl">📥 Indir</button>':'')+'<button class="btn-secondary" id="_stcl">Kapat</button></div>';
+  var html='<h3>⭐ Yıldızlılar</h3><div style="max-height:54vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:8px 0 4px;text-align:left;">'+body+'</div><div class="modal-btns">'+(ids.length?'<button class="btn-primary" id="_stdl">📥 Indir</button>':'')+'<button class="btn-secondary" id="_stcl">Kapat</button></div>';
   showModal(html,function(ov2){
     var cl=ov2.querySelector('#_stcl');if(cl)cl.onclick=function(){closeModal(ov2);};
-    var dl=ov2.querySelector('#_stdl');if(dl)dl.onclick=function(){_kDlTxt(_starsLibText(),'Kutuphane - yildizlilar.txt');};
+    var dl=ov2.querySelector('#_stdl');if(dl)dl.onclick=function(){_kDlTxt(_starsLibText(),'Kütüphane - yıldızlılar.txt');};
     ov2.querySelectorAll('._libspk').forEach(function(btn){btn.addEventListener('click',function(){_libSpeak(this.dataset.lw);});});
   });
 }
 
 function resetAll() {
-  showModal('<h3>Tum Tiklemeleri Sifirla</h3><p>Tum tikleri silmek istediginizden emin misiniz?</p><div class="modal-btns"><button class="btn-danger" id="sc-rs">Evet, Sifirla</button><button class="btn-secondary" id="sc-ca">Iptal</button></div>',
+  showModal('<h3>Tüm Tıklemeleri Sıfırla</h3><p>Tüm tikleri silmek istediğinizden emin misiniz?</p><div class="modal-btns"><button class="btn-danger" id="sc-rs">Evet, Sıfırla</button><button class="btn-secondary" id="sc-ca">Iptal</button></div>',
     function(ov){
       ov.querySelector('#sc-rs').onclick=()=>{
         (curView()||document).querySelectorAll('.item-check').forEach(cb=>{cb.checked=false;var row=document.getElementById('row_'+cb.id);if(row)row.classList.remove('done');});
