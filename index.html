@@ -10476,20 +10476,27 @@ async function _purgeFetch(){
 }
 /* TEK emri uygula. Döner: {m:silinenMedya, p:silinenİlerleme} */
 async function _purgeApplyOne(o){
+  /* VARYANT EKİ SOYULUR (savunma amaçlı — sunucu da soyuyor, ama eski/elle yazılmış emirler için).
+     Yerel kayıtlar HER ZAMAN taban id ile yazılır (_put(id,html), pos_/stars_/var_); varyant eki yalnız
+     ağ isteğinde kullanılır ⇒ taban id silmek, o başlıkta KURULU OLAN varyantı siler (aynı anda tek
+     varyant kurulu olabilir; farklı varyant indirmek aynı anahtarın üzerine yazar). */
+  if(o && o.scope==='item' && o.id) o=Object.assign({},o,{id:String(o.id).replace(/__[A-Za-z0-9]+$/,'')});
   var libs = (o.scope==='lib') ? (LIBS[o.lib]?[LIBS[o.lib]]:[]) : Object.keys(LIBS).map(function(k){return LIBS[k];});
-  var nM=0,nP=0, killMedia=(o.what==='media'||o.what==='both'), killProg=(o.what==='prog'||o.what==='both');
+  var nM=0,nP=0,err=false, killMedia=(o.what==='media'||o.what==='both'), killProg=(o.what==='prog'||o.what==='both');
   for(var i=0;i<libs.length;i++){
     var L=libs[i];
     if(killMedia){
       if(o.scope==='item'){
         /* id hangi kütüphanede olduğunu bilmiyoruz → hepsinde dene (yoksa zaten no-op) */
-        try{ var ex=await _get(o.id,L.db); if(ex!==undefined&&ex!==null){ await _del(o.id,L.db); nM++; } }catch(e){}
+        /* __PURGE_FIX__ v1: HATA ARTIK YUTULMUYOR — err bayrağı kalkarsa emir DAMGALANMAZ ve
+           bir sonraki açılışta yeniden denenir (iOS'ta IDB depolama baskısında fırlatabiliyor). */
+        try{ var ex=await _get(o.id,L.db); if(ex!==undefined&&ex!==null){ await _del(o.id,L.db); nM++; } }catch(e){ err=true; }
         try{ localStorage.removeItem(L.prefix+'var_'+o.id); localStorage.removeItem(L.prefix+'varsz_'+o.id); }catch(e){}
       } else {
-        var ks=[]; try{ ks=await _keys(L.db)||[]; }catch(e){}
+        var ks=[]; try{ ks=await _keys(L.db)||[]; }catch(e){ err=true; }
         for(var k2=0;k2<ks.length;k2++){ var kk=ks[k2];
           if(kk===_MAP_KEY) continue;                     /* eşleme kaydı içerik değil → korunur */
-          try{ await _del(kk,L.db); nM++; }catch(e){}
+          try{ await _del(kk,L.db); nM++; }catch(e){ err=true; }
         }
         /* varyant/boyut etiketleri de gitsin (bayat etiket kalmasın) */
         try{ var rm=[]; for(var q=0;q<localStorage.length;q++){ var kq=localStorage.key(q);
@@ -10509,22 +10516,40 @@ async function _purgeApplyOne(o){
       kill.forEach(function(x){ try{ localStorage.removeItem(x); nP++; }catch(e){} });
     }
   }
-  return {m:nM,p:nP};
+  return {m:nM,p:nP,err:err};
 }
 async function _purgeCheck(){
   var orders=await _purgeFetch(); if(!orders||!orders.length) return;
   var seen=_purgeSeen();
   var fresh=orders.filter(function(o){ return o && +o.ts>seen; }).sort(function(a,b){ return a.ts-b.ts; });
   if(!fresh.length) return;
-  var tot={m:0,p:0}, msgs=[];
+  var tot={m:0,p:0}, msgs=[], anyErr=false, lastOK=0;
   for(var i=0;i<fresh.length;i++){
-    var r={m:0,p:0}; try{ r=await _purgeApplyOne(fresh[i]); }catch(e){}
+    var r={m:0,p:0,err:false};
+    try{ r=await _purgeApplyOne(fresh[i]); }catch(e){ r.err=true; }
     tot.m+=r.m; tot.p+=r.p;
+    if(r.err) anyErr=true; else lastOK=fresh[i].ts;   /* yalnız HATASIZ uygulananlar damgalanır */
     if(fresh[i].msg && msgs.indexOf(fresh[i].msg)<0) msgs.push(fresh[i].msg);
   }
-  _purgeSetSeen(fresh[fresh.length-1].ts);      /* hiçbir şey silinmese de kaydet → tekrar sorulmaz */
+  /* __PURGE_FIX__ v1: damga yalnız SORUNSUZ uygulanan son emre kadar ilerler. Hata olduysa o emir
+     damgalanmaz → bir sonraki açılışta YENİDEN denenir. Eskiden hata yutuluyor ama damga yine de
+     ilerliyordu ⇒ kalıcı sessiz başarısızlık. (Hiçbir şey silinmemesi hata DEĞİLDİR: kullanıcıda
+     o içerik olmayabilir — o durumda damga normal şekilde ilerler.) */
+  if(lastOK) _purgeSetSeen(lastOK);
   try{ await loadMediaState(); }catch(e){}
   try{ loadState(); updateCounts(); }catch(e){}
+  /* ADMIN'e teşhis: emir geldi ama hiçbir şey silinmediyse ya da hata olduysa SESSİZ KALMA.
+     Sıradan kullanıcıya gösterilmez (gürültü olur); admin modunda neden olduğunu görürsün. */
+  try{
+    if(document.body.classList.contains('admin') && (anyErr || (!tot.m && !tot.p))){
+      var d=fresh[fresh.length-1];
+      showMsg('Silme emri uygulandı — sonuç boş',
+        'Emir: '+d.scope+(d.lib?('/'+d.lib):'')+(d.id?('/'+d.id):'')+' · '+d.what+'\n'
+        +'Yeni emir: '+fresh.length+'   Silinen: medya '+tot.m+' · kayıt '+tot.p+'\n'
+        +(anyErr?'⚠ IDB HATASI oluştu — damga ilerlemedi, sonraki açılışta tekrar denenecek.\n':'')
+        +(!tot.m&&!tot.p&&!anyErr?'Bu cihazda eşleşen içerik YOKTU (id farklı olabilir ya da zaten silinmiş).\n':''));
+    }
+  }catch(e){}
   if(tot.m||tot.p){
     var body=(msgs.join('\n\n')||'Yönetici bazı içerikleri kaldırdı.')+'\n\n'
       +(tot.m?('• '+tot.m+' indirilmiş içerik silindi\n'):'')
@@ -10533,9 +10558,13 @@ async function _purgeCheck(){
     try{ showMsg('İçerik Güncellendi',body); }catch(e){}
   }
 }
-/* açılışta + sekmeye dönüşte (en fazla 5 dk'da bir) */
+/* açılışta + sekmeye dönüşte.
+   __PURGE_FIX__ v1 (2026-07-30): KISITLAYICI 5 dk → 20 sn. Sebep: emri yayınlayıp cihaza dönmek
+   tipik olarak 1-2 dakika sürüyor; 5 dk'lık pencere tam o anı kör ediyordu (PWA açılışta bir kez
+   bakıp damgalıyor, sonra dönüşte "daha erken" deyip atlıyordu). 20 sn hem sunucuyu yormaz
+   (istek başına birkaç yüz bayt) hem de dönüşte GERÇEKTEN kontrol eder. */
 var _purgeLast=0;
-function _purgeMaybe(){ var n=Date.now(); if(n-_purgeLast<300000) return; _purgeLast=n; _purgeCheck(); }
+function _purgeMaybe(){ var n=Date.now(); if(n-_purgeLast<20000) return; _purgeLast=n; _purgeCheck(); }
 setTimeout(_purgeMaybe,2500);
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') _purgeMaybe(); });
 
@@ -10580,7 +10609,8 @@ function _purgeAdminOpen(){
     +'<div style="font-size:12.5px;display:flex;flex-direction:column;gap:7px">'
     +'<label>Kapsam: <select id="_pgs" style="padding:5px;border-radius:6px;border:1px solid #cbd5e0"><option value="all">Tüm kütüphaneler</option><option value="lib">Tek kütüphane</option><option value="item">Tek başlık</option></select></label>'
     +'<label id="_pglw" style="display:none">Kütüphane: <select id="_pgl" style="padding:5px;border-radius:6px;border:1px solid #cbd5e0">'+libOpts+'</select></label>'
-    +'<label id="_pgiw" style="display:none">Başlık id: <input id="_pgi" type="text" placeholder="item_0_0_0" style="padding:5px;border:1px solid #cbd5e0;border-radius:6px;width:180px"></label>'
+    +'<label id="_pgiw" style="display:none">Başlık id: <input id="_pgi" type="text" placeholder="item_0_0_0" style="padding:5px;border:1px solid #cbd5e0;border-radius:6px;width:180px">'
+    +'<div style="font-size:11px;color:#718096;margin-top:3px;line-height:1.4">TABAN id yeter — o başlıkta <b>hangi varyant kuruluysa</b> silinir. Varyant eki (<code>__aac96m</code>) yazsan da otomatik soyulur.</div></label>'
     +'<label>Hedef: <select id="_pgt" style="padding:5px;border-radius:6px;border:1px solid #cbd5e0"><option value="">Herkes</option><option value="code">Belirli KV kodu</option></select></label>'
     +'<label id="_pgcw" style="display:none">KV kodu: <input id="_pgc" type="text" placeholder="kod" style="padding:5px;border:1px solid #cbd5e0;border-radius:6px;width:180px"></label>'
     +'<label>Ne silinsin: <select id="_pgw" style="padding:5px;border-radius:6px;border:1px solid #cbd5e0"><option value="media">Yalnız medya (önerilen)</option><option value="prog">Yalnız ilerleme + yıldızlar</option><option value="both">İkisi birden</option></select></label>'
