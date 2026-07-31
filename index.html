@@ -809,6 +809,7 @@
     <button class="hub-tool admin-only" onclick="showTagger()">🏷 Etiketle</button>
     <button class="hub-tool admin-only" onclick="genManifest()">📋 Manifest üret</button>
     <button class="hub-tool admin-only" onclick="showStats()">📊 İstatistik</button>
+<button class="hub-tool admin-only" onclick="_pEdit()">ping</button>
 <button class="hub-tool" onclick="_wipeOpen()" title="İndirilmiş medyayı toplu sil — bu kütüphaneden veya tüm kütüphanelerden. İlerleme ve yıldızlar isteğe bağlı.">🧹 Depoyu Temizle</button><!-- __PURGE__ -->
 <button class="hub-tool admin-only" onclick="_purgeAdminOpen()" title="UZAKTAN SİLME — tüm kullanıcıların cihazlarından içerik sildirir (admin şifresi sunucuda denetlenir)">🛑 Uzaktan Sil</button><!-- __PURGE__ -->
 <button class="hub-tool admin-only" onclick="_plogOpen()" title="İşlem kaydı — uzaktan silme ve temizlik olayları tarihiyle birikir. Admin şifresi sunucuda doğrulanır.">📜 İşlem Kaydı</button><!-- __PURGE_LOG__ -->
@@ -9388,11 +9389,16 @@ async function _downloadMedia(id, man, _fresh){
   var _sfx='', _skipDlg=false;
   if(_fresh){ _sfx=_varGet(id); }
   else if(LIB_VARIANTS.length>1 && _verLive()){
+    /* __VER_CACHE__ v1: SUNUCUDA OLMAYAN varyantı SORMA. Hangi varyantların yüklü olduğunu
+       _srvNames (mode=list, oturum önbellekli) zaten biliyor → ağ isteği YOK, KV yazması YOK.
+       Eskiden 3 kademe koşulsuz sorgulanıyordu; artık yalnız gerçekten var olanlar. */
+    var _cand=_varsPresent(id,LIB_VARIANTS);
+    if(!_cand.length) _cand=[LIB_VARIANTS[0]];         /* liste alınamadıysa (kod yok/offline) en azından tabanı dene */
     var _sizes=[];
-    try{ _sizes=await Promise.all(LIB_VARIANTS.map(function(v){ return _fetchSize(id+v.sfx).catch(function(){return 0;}); })); }
+    try{ _sizes=await Promise.all(_cand.map(function(v){ return _fetchSize(id+v.sfx).catch(function(){return 0;}); })); }
     catch(e){ _sizes=[]; }
     var _av=[];
-    for(var _k=0;_k<LIB_VARIANTS.length;_k++) if(_sizes[_k]>0) _av.push({v:LIB_VARIANTS[_k],sz:_sizes[_k]});
+    for(var _k=0;_k<_cand.length;_k++) if(_sizes[_k]>0) _av.push({v:_cand[_k],sz:_sizes[_k]});
     if(_av.length>1 || (_av.length===1 && _varsExtraOnServer(id).length)){
       /* boş alan + bağlantı notu bu ekrana taşınır → İKİ ÜST ÜSTE dialog olmaz, uyarı yine HER indirmede çıkar */
       var _fx='', _cn2=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
@@ -9513,7 +9519,22 @@ async function _downloadMedia(id, man, _fresh){
    Damga: cur().prefix+'ver_'+id (yüklü sürüm). "Kalsın"→hiçbir şey saklanmaz, HER tıklamada tekrar sorar. */
 function _verLive(){ return typeof LIB_AUTH_URL==='string' && LIB_AUTH_URL.indexOf('HESABIN')<0 && /^https?:/.test(LIB_AUTH_URL); }
 /* __DL_INFO__ yardımcısı: mode=ver'den YALNIZ boyut (kod yoksa/hata → 0 = dialog atlanır, akış eski) */
+/* __VER_CACHE__ v1 (2026-07-30): OTURUM ÖNBELLEĞİ — KV YAZMA BÜTÇESİ İÇİN ZORUNLU.
+   Worker'da mode=ver → resolveAssetId(..., fresh=TRUE) → asset önbelleği ATLANIR ama sonuç
+   KOŞULSUZ KV'ye YAZILIR (worker.js:108 + :138). Yani HER boyut sorgusu = 1 KV yazma.
+   Varyant seçicisi başlık başına 3+ sorgu yaptığı için test sırasında günlük 1000 yazma
+   bütçesinin yarısı tükendi. Bu önbellek aynı id'yi oturum içinde bir kez sorar.
+   TAZELEME: bellekte tutulur → SAYFA YENİLENİNCE SIFIRLANIR (yeni varyant yükledikten sonra
+   yenile, hemen görünür). Ek güvenlik valfi: 30 dk TTL. */
+var _verSzCache={};
 async function _fetchSize(id){
+  var _c=_verSzCache[id];
+  if(_c && (Date.now()-_c.t)<1800000) return _c.sz;
+  var _sz=await _fetchSizeNet(id);
+  _verSzCache[id]={sz:_sz,t:Date.now()};
+  return _sz;
+}
+async function _fetchSizeNet(id){
   if(!_verLive() || navigator.onLine===false) return 0;
   var _key=''; try{_key=localStorage.getItem('lib_dl_key')||'';}catch(e){}
   if(!_key) return 0;
@@ -10159,19 +10180,71 @@ function _statPing(){
     fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=ping&dev='+encodeURIComponent(_devId())+'&p='+_statPlat(),{cache:'no-store',keepalive:true}).catch(function(){});
   }catch(e){}
 }
-setTimeout(_statPing,2000);
-setInterval(function(){ if(document.visibilityState==='visible')_statPing(); },10*60*1000);
-document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible')_statPing(); });
+var _pIv=null;
+function _pGet(){ try{ var v=localStorage.getItem('lib_p'); if(v!==null){ var n=parseInt(v,10); if(!isNaN(n)&&n>=0) return n; } }catch(e){} return 10; }
+function _pSet(m){
+  m=(m===0||m>0)?m:10;
+  try{ localStorage.setItem('lib_p',String(m)); }catch(e){}
+  if(_pIv){ try{clearInterval(_pIv);}catch(e){} _pIv=null; }
+  if(m===0) return;
+  if(m===1) return;
+  _pIv=setInterval(function(){ if(document.visibilityState==='visible')_statPing(); },m*60000);
+}
+if(_pGet()!==0) setTimeout(_statPing,2000);
+_pSet(_pGet());
+document.addEventListener('visibilitychange',function(){ var _m=_pGet(); if(document.visibilityState==='visible'&&_m!==0&&_m!==1)_statPing(); });
+/* ═══ __STATS_ARCH__ v1 (2026-07-30): İSTATİSTİK ARŞİVİ + TXT ══════════════════════════════════════
+   Sunucudaki st:<gün>:<cihaz> anahtarları 8 GÜN TTL'li (depo şişmesin diye) → 8 günden eskisi KAYBOLUR.
+   Bu yüzden her çekişte dönen günler CİHAZDA biriktirilir; böylece 8 günü aşan kalıcı geçmiş oluşur.
+   İÇERİK: yalnız {gün, tekil cihaz sayısı, platform sayıları}. Kişisel veri, KV kodu, isim, IP YOK
+   (sunucu zaten bunları döndürmüyor) → localStorage'da tutmak ek bir sızıntı yüzeyi açmaz.
+   Aynı gün tekrar çekilirse ÜZERİNE yazılır (gün ilerledikçe sayı büyür). Boş gün arşive GİRMEZ. */
+var STATS_ARCH_KEY='lib_stats_arch';
+function _statsArchGet(){ try{ var a=JSON.parse(localStorage.getItem(STATS_ARCH_KEY)||'{}'); return (a&&typeof a==='object')?a:{}; }catch(e){ return {}; } }
+function _statsArchMerge(days){
+  try{
+    var a=_statsArchGet(), n=0;
+    (days||[]).forEach(function(d){ if(!d||!d.day||!(d.uniq>0)) return; a[d.day]={uniq:d.uniq,plats:d.plats||{}}; n++; });
+    var ks=Object.keys(a).sort(); if(ks.length>400){ ks.slice(0,ks.length-400).forEach(function(k){ delete a[k]; }); }
+    localStorage.setItem(STATS_ARCH_KEY,JSON.stringify(a));
+    return {added:n,total:Object.keys(a).length};
+  }catch(e){ return {added:0,total:0}; }
+}
+function _statsTxt(){
+  var a=_statsArchGet(), ks=Object.keys(a).sort(), NL=String.fromCharCode(10);
+  if(!ks.length){ showMsg('Arşiv Boş','Önce 📊 İstatistik ekranını aç — çekilen günler arşive yazılır.'); return; }
+  var PL={'ios-pwa':'iPhone PWA','ios-web':'iPhone Safari','android-pwa':'Android PWA','android-web':'Android','masaustu-pwa':'Masaustu PWA','masaustu-web':'Masaustu','diger':'diger'};
+  var out='KÜTÜPHANE KULLANIM ARŞİVİ'+NL+'════════════════════════'+NL
+    +'Üretildi: '+new Date().toLocaleString('tr')+NL
+    +'Kayıtlı gün: '+ks.length+'  ('+ks[0].slice(6,8)+'.'+ks[0].slice(4,6)+'.'+ks[0].slice(0,4)+' → '+ks[ks.length-1].slice(6,8)+'.'+ks[ks.length-1].slice(4,6)+'.'+ks[ks.length-1].slice(0,4)+')'+NL
+    +'Not: sayım cihaz-bazlıdır, kişisel veri içermez. İnternetsiz kullanım sayılmaz.'+NL+NL
+    +'GÜN         CİHAZ   PLATFORM DAĞILIMI'+NL
+    +'──────────  ─────   ─────────────────'+NL;
+  var tot=0, allP={};
+  ks.forEach(function(k){
+    var d=a[k], ps=Object.keys(d.plats||{}).map(function(p){ allP[p]=(allP[p]||0)+d.plats[p]; return (PL[p]||p)+' '+d.plats[p]; }).join(' · ')||'—';
+    tot+=d.uniq||0;
+    out+=k.slice(6,8)+'.'+k.slice(4,6)+'.'+k.slice(0,4)+'  '+String(d.uniq||0).padStart(5)+'   '+ps+NL;
+  });
+  out+=NL+'TOPLAM (gün-cihaz): '+tot+NL
+    +'Platform toplamı  : '+Object.keys(allP).map(function(p){return (PL[p]||p)+' '+allP[p];}).join(' · ')+NL;
+  var blob=new Blob([out],{type:'text/plain;charset=utf-8'});
+  var u=URL.createObjectURL(blob), el=document.createElement('a');
+  el.href=u; el.download='kutuphane-kullanim-arsivi.txt'; document.body.appendChild(el); el.click(); el.remove();
+  setTimeout(function(){URL.revokeObjectURL(u);},5000);
+}
 async function showStats(){
   if(typeof _verLive!=='function'||!_verLive()){ showMsg('Sunucu Yok','İstatistik yalnız canlı (Worker) modda çalışır.'); return; }
   var pass=prompt('Admin şifresi (istatistik sunucudan çekilir):'); if(pass===null)return; pass=pass.trim(); if(!pass)return;
   var ov=_showProg('İstatistik alınıyor...',30);
   try{
-    var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=stats&days=7&a='+encodeURIComponent(pass),{cache:'no-store'});
+    /* __STATS_ARCH__: days=8 — sunucudaki TTL 8 gün, bir çekişte KAYBOLMADAN önceki her günü yakala */
+    var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=stats&days=8&a='+encodeURIComponent(pass),{cache:'no-store'});
     _closeOv(ov);
     if(r.status===403){ showMsg('Reddedildi','Admin şifresi yanlış.'); return; }
     if(!r.ok) throw new Error('HTTP '+r.status);
     var j=await r.json(); var ds=(j&&j.days)||[];
+    var _arch=_statsArchMerge(ds);   /* __STATS_ARCH__: 8 günü aşan kalıcı geçmiş cihazda birikir */
     var _pl={'ios-pwa':'📱 iPhone PWA','ios-web':'📱 iPhone Safari','android-pwa':'🤖 Android PWA','android-web':'🤖 Android','masaustu-pwa':'💻 Masaüstü PWA','masaustu-web':'💻 Masaüstü','diger':'❔ Diğer'};
     var html='<h3>📊 Kullanım (son 7 gün)</h3>';
     if(ds.length){
@@ -10188,8 +10261,15 @@ async function showStats(){
       });
       html+='</table><p style="font-size:.72rem;color:#94a3b8;margin-top:8px;line-height:1.5">Sayım cihaz-bazlıdır, kişisel veri tutulmaz. İnternetsiz kullananlar doğal olarak sayılamaz.</p>';
     } else html+='<p>Henüz veri yok.</p>';
-    html+='<div class="modal-btns"><button class="btn-secondary" id="_st_cl">Kapat</button></div>';
-    showModal(html,function(o){ o.querySelector('#_st_cl').onclick=function(){closeModal(o);}; });
+    /* __STATS_ARCH__: kalıcı arşiv özeti + TXT indirme (sunucudaki 8 günlük TTL'i aşar) */
+    html+='<p style="font-size:.72rem;color:#94a3b8;margin:6px 0 0;line-height:1.5">📦 Kalıcı arşiv: <b>'+_arch.total+'</b> gün kayıtlı'
+      +(_arch.added?(' · bu açılışta '+_arch.added+' gün eklendi/güncellendi'):'')
+      +'<br>Sunucu yalnız son 8 günü tutar; arşiv bu cihazda birikir ve TXT olarak indirilebilir.</p>';
+    html+='<div class="modal-btns"><button class="btn-secondary" id="_st_txt">📥 Arşivi TXT indir</button><button class="btn-secondary" id="_st_cl">Kapat</button></div>';
+    showModal(html,function(o){
+      o.querySelector('#_st_cl').onclick=function(){closeModal(o);};
+      var _tb=o.querySelector('#_st_txt'); if(_tb) _tb.onclick=function(){ _statsTxt(); };
+    });
   }catch(e){ _closeOv(ov); showMsg('Hata','İstatistik alınamadı: '+((e&&e.message)||e)); }
 }
 
@@ -11139,12 +11219,30 @@ async function _swCfgSync(){
   try{
     var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=cfg',{cache:'no-store'});
     if(!r.ok) return; var j=await r.json();
-    if(!j||!j.ok||(j.sw!=='0'&&j.sw!=='1')) return;
+    if(!j||!j.ok) return;
+    if(j.ping!==undefined&&j.ping!==''){ var _n=parseInt(j.ping,10); if(!isNaN(_n)&&_n>=0&&_n!==_pGet()) _pSet(_n); }
+    if(j.sw!=='0'&&j.sw!=='1') return;
     var broken=false; try{ broken=localStorage.getItem('lib_sw_broken')==='1'; }catch(e){}
     var v=(broken&&j.sw==='1')?'0':j.sw;
     try{ localStorage.setItem('lib_sw_mode', v); }catch(e){}
     _swLabel();
   }catch(e){}
+}
+async function _pEdit(){
+  var cur=_pGet();
+  var v=prompt('ping',String(cur)); if(v===null) return;
+  v=(v+'').trim(); var n=parseInt(v,10);
+  if(isNaN(n)||n<0||n>1440){ showMsg('—','0 – 1440'); return; }
+  var pass=prompt('Admin şifresi:'); if(pass===null) return; pass=pass.trim(); if(!pass) return;
+  try{
+    var u=LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=setcfg&a='+encodeURIComponent(pass);
+    var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ping:n}),cache:'no-store'});
+    if(r.status===403){ showMsg('Reddedildi','Admin şifresi yanlış.'); return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var j=await r.json(); if(!j||!j.ok) throw new Error('red');
+    _pSet(n);
+    showMsg('ping', String(n));
+  }catch(e){ showMsg('Hata',(e&&e.message)||e); }
 }
 setTimeout(_swCfgSync,1200);
 setTimeout(function(){ try{ _annBoot(); }catch(e){} },1400); /* __ANN__: ilk açılış otomatik duyuru (kapı geçildiyse + yeni duyuru varsa) */
