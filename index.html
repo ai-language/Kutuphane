@@ -9569,7 +9569,13 @@ async function _maybeOfferUpdate(id){
   if(_verBusy.has(id)) return;                                        // bu başlığın ver-kontrolü ZATEN çalışıyor (eşzamanlı çift-tetik) → atla; tek-tık davranışı değişmez
   _verBusy.add(id);
   try{
-  var sv=await _fetchVer(id);                                         // HER tıklamada kontrol (throttle YOK — kullanıcı her tıklamada sorulsun istedi)
+  /* __VER_VAR__ v1 (2026-07-30): KURULU VARYANTIN damgası sorulur, tabanınki DEĞİL.
+     Eskiden _fetchVer(id) tabanı soruyordu ama indirme yolu zaten kurulu varyantı indiriyor
+     (_fresh → _sfx=_varGet(id)) → tutarsızlık: TABANI sor, VARYANTI indir. Sonuçları:
+       • yalnız taban yeniden yüklenince → 96k kullanıcısına GEREKSİZ uyarı + boşa indirme
+       • varyant sunucudan silinmişse → indirme 404, damga kaydedilmez → HER dokunuşta sonsuz uyarı
+     Artık kontrol ile indirme AYNI dosyayı hedefler. Varyant yoksa (taban kurulu) davranış birebir eski. */
+  var sv=await _fetchVer(id+(_varGet(id)||''));                       // HER tıklamada kontrol (throttle YOK — kullanıcı her tıklamada sorulsun istedi)
   if(!sv) return;                                                     // offline/hata/dev/kod-yok → sessiz, yerelle devam
   var stored=''; try{stored=localStorage.getItem(cur().prefix+'ver_'+id)||'';}catch(e){}
   if(!stored){ try{localStorage.setItem(cur().prefix+'ver_'+id,sv);}catch(e){} return; }   // eski dosya (damgasız) → mevcut sürümü TABAN al, sorma
