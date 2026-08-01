@@ -9412,9 +9412,10 @@ async function _downloadMedia(id, man, _fresh){
             +'<br><span style="opacity:.7">(tarayıcı kotası — cihazın boş alanı değil)</span>'; } } }catch(_e){}
       var _cnt=_varGet(id);            /* o an KURULU varyant → ön-seçim (3'lünün dışındaysa kutuya yerleşir) */
       var _mbT=function(b){ var mb=b/1048576; return (mb>=100?Math.round(mb):mb.toFixed(1))+' MB'; };
+      /* "şu an kurulu" rozeti KALDIRILDI: _varGet boş dönerken ('' = hiçbir şey kurulu değil) taban
+         varyantın eki de '' olduğu için yanlışlıkla eşleşiyor ve indirilmemiş başlıkta bile yazıyordu. */
       var _rw=_av.map(function(a){
-        return { sfx:a.v.sfx, sz:a.sz, label:a.v.label,
-                 note:a.v.note+(a.v.sfx===_cnt?' · şu an kurulu':''), right:_mbT(a.sz) }; });
+        return { sfx:a.v.sfx, sz:a.sz, label:a.v.label, note:a.v.note, right:_mbT(a.sz) }; });
       /* EK VARYANTLAR: sunucudaki asset adlarından KEŞFEDİLİR (ek ağ isteği yok), sonra boyutları alınır */
       var _exv=_varsExtraOnServer(id), _exr=[];
       if(_exv.length){
