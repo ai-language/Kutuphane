@@ -809,8 +809,8 @@
     <button class="hub-tool admin-only" onclick="showTagger()">🏷 Etiketle</button>
     <button class="hub-tool admin-only" onclick="genManifest()">📋 Manifest üret</button>
 <button class="hub-tool" onclick="_wipeOpen()" title="İndirilmiş medyayı toplu sil — bu kütüphaneden veya tüm kütüphanelerden. İlerleme ve yıldızlar isteğe bağlı.">🧹 Depoyu Temizle</button><!-- __PURGE__ -->
-<button class="hub-tool admin-only" onclick="_purgeAdminOpen()" title="UZAKTAN SİLME — tüm kullanıcıların cihazlarından içerik sildirir (admin şifresi sunucuda denetlenir)">🛑 Uzaktan Sil</button><!-- __PURGE__ -->
-<button class="hub-tool admin-only" onclick="_plogOpen()" title="İşlem kaydı — uzaktan silme ve temizlik olayları tarihiyle birikir. Admin şifresi sunucuda doğrulanır.">📜 İşlem Kaydı</button><!-- __PURGE_LOG__ -->
+<button class="hub-tool admin-only" onclick="_purgeAdminOpen()">🛑 Sil</button><!-- __PURGE__ -->
+<button class="hub-tool admin-only" onclick="_plogOpen()">📜 İşlem Kaydı</button><!-- __PURGE_LOG__ -->
   </div>
   </div>
 </div>
@@ -10593,7 +10593,6 @@ async function _plogOpen(){
       }).join('')
     : '<div style="opacity:.6;font-size:12.5px;padding:10px 0">Kayıt yok.</div>';
   showModal('<h3>📜 İşlem Kaydı</h3>'
-    +'<p style="font-size:11.5px;color:#718096;margin:2px 0 8px;line-height:1.45">Uzaktan silme ve temizlik olayları. <b>Yalnız bu cihazda</b> saklanır, sunucuya gitmez. Son 120 kayıt.</p>'
     +'<div style="max-height:52vh;overflow:auto;border:1px solid rgba(127,127,127,.25);border-radius:8px;padding:4px 9px">'+rows+'</div>'
     +'<div class="modal-btns" style="margin-top:10px"><button class="btn-danger" id="_plc">Kaydı Temizle</button><button class="btn-primary" id="_plk">Kapat</button></div>',
   function(o){
@@ -10644,7 +10643,7 @@ function _wipeOpen(){
 /* ---- ADMIN: uzaktan silme emri yayınla ---- */
 function _purgeAdminOpen(){
   var libOpts=Object.keys(LIBS).map(function(k){ return '<option value="'+k+'">'+LIBS[k].name+'</option>'; }).join('');
-  showModal('<h3>🛑 Uzaktan Sil</h3>'
+  showModal('<h3>🛑 Sil</h3>'
     +'<p style="font-size:12px;line-height:1.5;color:#475569;margin:2px 0 10px">Emir sunucuda saklanır; kullanıcının kütüphanesi <b>her açılışta</b> kontrol eder ve uygular. İnternetsiz cihaz <b>ilk bağlantıda</b> uyar. Emir kalıcıdır.</p>'
     +'<div style="font-size:12.5px;display:flex;flex-direction:column;gap:7px">'
     +'<label>Kapsam: <select id="_pgs" style="padding:5px;border-radius:6px;border:1px solid #cbd5e0"><option value="all">Tüm kütüphaneler</option><option value="lib">Tek kütüphane</option><option value="item">Tek başlık</option></select></label>'
