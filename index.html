@@ -799,7 +799,7 @@
     <!-- EN kartı hub'da YOK (kullanıcı kararı): İngilizce sayfaya yalnız kütüphane-içi 🇬🇧 butonlarından girilir -->
   </div>
   <div class="hub-tools">
-    <button id="_hub_install_btn" class="hub-tool" onclick="_hubInstallPWA()" style="display:none">📲 Ana Ekrana</button>
+    <button id="_hub_install_btn" class="hub-tool" onclick="_hubInstallPWA()" style="display:none">📲 Ana Ekrana Ekle</button>
     <button id="_sw_tog" class="hub-tool admin-only" onclick="_swToggle()" title="Medya açılış modu: Blob / SW — DEĞİŞİKLİK TÜM KULLANICILARA uygulanır (admin şifresi sunucu doğrular)">⚙ Açılış: Blob</button><!-- __SW_GLOBAL__: admin-only + KV ortak ayar; cihaz-yerel bozulma ağı herkes için aynen aktif -->
     <button class="hub-tool" id="_ann_btn" onclick="_annOpen()" style="display:none" title="Duyurular">📢 Duyurular</button><!-- __ANN__ -->
     <button class="hub-tool" onclick="_guideOpen()" title="Kullanım rehberi — tüm jestler ve butonlar (kişiye özel kodla açılır)">📖 Rehber</button><!-- __GUIDE__ -->
@@ -10607,15 +10607,27 @@ async function _plogOpen(){
 
 /* ---- HERKES İÇİN: toplu temizlik (sunucu GEREKMEZ) ---- */
 function _wipeOpen(){
-  var cn=(cur()&&cur().name)||'bu kütüphane';
+  /* ⚠️ ESKIDEN: "Yalnız <o an acik kutuphane>" + "Tum kutuphaneler" seklinde IKI
+     radyo vardi. Hangi kutuphanede oldugunu hatirlamak gerekiyordu ve listede
+     yalnizca BIR ad goruunuyordu — kullanici "cetrefilli" dedi, hakliydi.
+     ARTIK: butun kutuphaneler ADIYLA listelenir ve TEK TEK isaretlenir.
+     O an acik olan pesinen isaretli gelir (eski davranisin karsiligi). */
+  var _wLibs = Object.keys(LIBS);
+  var _wSat = _wLibs.map(function(k){
+    var L=LIBS[k];
+    return '<label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:1px 0">'
+      +'<input type="checkbox" class="_wlb" value="'+L.id+'"'+(k===currentLib?' checked':'')+'>'
+      +'<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+L.c+'"></span>'
+      +'<b>'+L.name+'</b></label>';
+  }).join('');
   showModal('<h3>🧹 Depoyu Temizle</h3>'
     +'<p style="font-size:12.5px;line-height:1.55;color:#475569;margin:2px 0 10px">İndirilmiş medya cihazından silinir; istersen ilerleme ve yıldızlar da. Silinen içerik <b>tekrar indirilebilir</b>.</p>'
     +'<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;margin-bottom:10px">'
-    +'<label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="radio" name="_wsc" value="lib" checked> Yalnız <b>'+cn+'</b></label>'
-    +'<label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="radio" name="_wsc" value="all"> <b>Tüm kütüphaneler</b></label>'
+    +'<label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding-bottom:5px;border-bottom:1px solid #e2e8f0"><input type="checkbox" id="_wall"> <b>Hepsini seç</b></label>'
+    + _wSat
     +'</div>'
     +'<div style="display:flex;flex-direction:column;gap:5px;font-size:12.5px;margin-bottom:10px;padding-top:8px;border-top:1px solid #e2e8f0">'
-    +'<label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="_wpm" checked disabled> İndirilmiş medya <span style="opacity:.6">(her zaman)</span></label>'
+    +'<label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="_wpm" checked> İndirilmiş medya <span style="opacity:.6">(varsayılan seçili)</span></label>'
     +'<label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="_wpp"> İlerleme + yıldızlar <span style="opacity:.6">(varsayılan korunur)</span></label>'
     +'</div>'
     +'<p style="font-size:12px;color:#b45309;margin:0 0 6px">Devam etmek için kutuya <b>ONAYLA</b> yaz:</p>'
@@ -10623,19 +10635,57 @@ function _wipeOpen(){
     +'<div class="modal-btns" style="margin-top:10px"><button class="btn-danger" id="_wgo" disabled>Sil</button><button class="btn-secondary" id="_wcx">Vazgeç</button></div>',
   function(o){
     var tx=o.querySelector('#_wtx'), go=o.querySelector('#_wgo');
-    tx.addEventListener('input',function(){ go.disabled=(tx.value.trim().toLocaleUpperCase('tr')!=='ONAYLA'); });
+    var kutular=[].slice.call(o.querySelectorAll('._wlb')), hepsi=o.querySelector('#_wall');
+    function secili(){ return kutular.filter(function(x){return x.checked;}).map(function(x){return x.value;}); }
+    /* ⚠️ Sil dugmesi IKI sarta bagli: ONAYLA yazilmis VE en az bir kutuphane
+       secilmis. Eskiden secim hep vardi (radyo), simdi bosaltilabiliyor. */
+    var kMedya=o.querySelector('#_wpm'), kProg=o.querySelector('#_wpp');
+    function tazele(){
+      /* ⚠️ UC sart: ONAYLA yazilmis · en az bir KUTUPHANE secili · en az bir
+         SILINECEK TUR secili. Medya kutusu eskiden "her zaman" olup kilitliydi;
+         artik isteğe bagli (kullanici istedi), dolayisiyla ikisi de bos
+         birakilabiliyor ve o durumda silinecek bir sey yok. */
+      var turVar = (kMedya && kMedya.checked) || (kProg && kProg.checked);
+      go.disabled = (tx.value.trim().toLocaleUpperCase('tr')!=='ONAYLA')
+        || secili().length===0 || !turVar;
+      hepsi.checked = (secili().length===kutular.length);
+    }
+    tx.addEventListener('input',tazele);
+    [kMedya,kProg].forEach(function(x){ if(x) x.addEventListener('change',tazele); });
+    kutular.forEach(function(x){ x.addEventListener('change',tazele); });
+    hepsi.addEventListener('change',function(){
+      kutular.forEach(function(x){ x.checked=hepsi.checked; });
+      tazele();
+    });
+    tazele();
     o.querySelector('#_wcx').onclick=function(){ closeModal(o); };
     go.onclick=async function(){
-      var sc=(o.querySelector('input[name=_wsc]:checked')||{}).value||'lib';
-      var withProg=!!o.querySelector('#_wpp').checked;
+      var sec=secili();
+      if(!sec.length) return;
+      /* ⚠️ Ne silinecegi ARTIK IKI kutudan gelir; medya sabit degil. */
+      var wMedya=!!(kMedya&&kMedya.checked), wProg=!!(kProg&&kProg.checked);
+      if(!wMedya && !wProg) return;
+      var neSil = (wMedya&&wProg) ? 'both' : (wMedya ? 'media' : 'prog');
       go.disabled=true; go.textContent='Siliniyor…';
+      /* ⚠️ Her secili kutuphane icin AYRI cagri; sonuclar toplanir.
+         scope:'all' kullanilmiyor — kullanici artik tek tek seciyor ve
+         "hepsi" de yalnizca hepsini isaretlemek demek. */
       var r={m:0,p:0};
-      try{ r=await _purgeApplyOne({scope:(sc==='all'?'all':'lib'), lib:currentLib, what:(withProg?'both':'media')}); }catch(e){}
-      _plog('temiz','ELLE TEMİZLİK → '+(sc==='all'?'tüm kütüphaneler':('yalnız '+((cur()&&cur().name)||currentLib)))
-        +' · '+(withProg?'medya + ilerleme':'yalnız medya')+' → medya '+r.m+' · kayıt '+r.p);
+      for(var _i=0;_i<sec.length;_i++){
+        try{
+          var _r=await _purgeApplyOne({scope:'lib', lib:sec[_i], what:neSil});
+          r.m+=(_r&&_r.m)||0; r.p+=(_r&&_r.p)||0;
+        }catch(e){}
+      }
+      var adlar=sec.map(function(id){ return (LIBS[id]&&LIBS[id].name)||id; }).join(', ');
+      _plog('temiz','ELLE TEMİZLİK → '+adlar
+        +' · '+(neSil==='both'?'medya + ilerleme':(neSil==='media'?'yalnız medya':'yalnız ilerleme + yıldızlar'))
+        +' → medya '+r.m+' · kayıt '+r.p);
       closeModal(o);
       try{ await loadMediaState(); loadState(); updateCounts(); }catch(e){}
-      showMsg('Temizlendi','• '+r.m+' indirilmiş içerik silindi'+(withProg?('\n• '+r.p+' ilerleme/işaret kaydı silindi'):'\n• İlerleme ve yıldızlar korundu'));
+      showMsg('Temizlendi',
+        (wMedya?('• '+r.m+' indirilmiş içerik silindi'):'• İndirilmiş medya korundu')
+        +(wProg?('\n• '+r.p+' ilerleme/işaret kaydı silindi'):'\n• İlerleme ve yıldızlar korundu'));
     };
   });
 }
