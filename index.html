@@ -8657,18 +8657,29 @@ async function _markUploaded(localKeys){
    OKU = public (mode=clk, kod gerekmez \u2192 welcome-only kullan\u0131c\u0131 da g\u00f6r\u00fcr). YAZ = admin edit\u00f6r \u2192 POST mode=setclk + ADMIN_PASS
    (Worker server-do\u011frular; panel client'ta hack'le a\u00e7\u0131lsa bile yazma reddedilir). Offline/dev/hata \u2192 HTML default (data-clk) kal\u0131r. */
 var _clkMap={};   // lib -> {id:"0"|"1"} override (oturum cache)
+/* __CLK_MEM__ v1 (2026-11-06): sunucudan gelen son ge\u00e7erli harita cihazda da tutulur (clk_map_<lib>) \u2192 \u00e7evrimd\u0131\u015f\u0131
+   a\u00e7\u0131l\u0131\u015fta ya da sunucu yan\u0131t vermezse HTML varsay\u0131lan\u0131na de\u011fil SON B\u0130L\u0130NEN haritaya d\u00fc\u015f\u00fcl\u00fcr (yoksa sunucuda
+   a\u00e7\u0131lm\u0131\u015f + indirilmi\u015f alt ba\u015fl\u0131k \u00e7evrimd\u0131\u015f\u0131nda kilitli kal\u0131rd\u0131). Kay\u0131t yoksa her dal ESK\u0130S\u0130YLE B\u0130REB\u0130R. */
+function _clkStoreGet(lib){ try{ var s=localStorage.getItem('clk_map_'+lib); if(!s) return null; var o=JSON.parse(s); return (o&&typeof o==='object'&&!Array.isArray(o))?o:null; }catch(e){ return null; } }
+function _clkStoreSet(lib,map){ try{ localStorage.setItem('clk_map_'+lib,JSON.stringify(map||{})); }catch(e){} }
 async function _applyClk(){
   if(!_verLive()) return;                                          // dev/HESABIN \u2192 sunucu yok, HTML default
   var lib=currentLib, ov=_clkMap[lib];
   if(!ov){
-    if(navigator.onLine===false) return;
-    try{
-      var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=clk&lib='+encodeURIComponent(lib),{cache:'no-store'});
-      if(!r.ok) return;
-      var j=await r.json();
-      ov=(j&&j.ok&&j.map&&typeof j.map==='object')?j.map:{};
-      _clkMap[lib]=ov;
-    }catch(e){ return; }
+    var _cs=_clkStoreGet(lib);                                     // __CLK_MEM__: son bilinen harita (yoksa null)
+    if(navigator.onLine===false){ if(!_cs) return; ov=_cs; }
+    else {
+      try{
+        var r=await fetch(LIB_AUTH_URL+(LIB_AUTH_URL.indexOf('?')>=0?'&':'?')+'mode=clk&lib='+encodeURIComponent(lib),{cache:'no-store'});
+        if(!r.ok){ if(!_cs) return; ov=_cs; }
+        else {
+          var j=await r.json();
+          if(j&&j.ok&&j.map&&typeof j.map==='object'){ ov=j.map; _clkStoreSet(lib,ov); }
+          else ov=_cs||{};
+          _clkMap[lib]=ov;
+        }
+      }catch(e){ if(!_cs) return; ov=_cs; }
+    }
   }
   if(lib!==currentLib) return;                                     // arada k\u00fct\u00fcphane de\u011fi\u015ftiyse iptal
   var changed=false;
@@ -9596,6 +9607,8 @@ async function _maybeOfferUpdate(id){
 async function openMedia(id) {
   let html; try { html=await _get(id); } catch(e) { showMsg('Hata','Medya açılamadı: '+e.message); return; }
   if (!html) {
+    /* __OFFLINE_UI__ v1 (2026-11-06): çevrimdışıyken indirme denenmez — ham ağ hatası ("Load failed") yerine net mesaj */
+    try { if (navigator.onLine===false) { showMsg('Çevrimdışı','Bu içerik bu cihaza henüz indirilmemiş. İnternete bağlandığınızda indirebilirsiniz.'); return; } } catch(e) {}
     // IDB'de yok -> sunucudan indir + cache'le (sonraki acilis offline).
     // Manifest varsa ONCE oradan (cok-host / boyut korunur); yoksa -> file://'da tarayici yerel json
     // fetch'ini engeller, bu yuzden Worker URL'i DOGRUDAN kurulur (genManifest ile birebir) -> yerelde de indirir.
@@ -10521,7 +10534,7 @@ async function _purgeCheck(){
   var orders=await _purgeFetch();
   /* __PURGE_FIX__ v1: ERKEN DÖNÜŞLER ARTIK SESSİZ DEĞİL — ilk denemede tam burada kaybolmuştuk.
      null = sunucuya ulaşılamadı / worker'da mode=purge yok / CORS. [] = emir yok (normal, kayıt tutulmaz). */
-  if(orders===null){ _plog('ag','Sunucudan emir ALINAMADI — worker redeploy edilmemiş, çevrimdışı ya da CORS olabilir.'); return; }
+  if(orders===null){ if(navigator.onLine===false) return; /* __OFFLINE_UI__: çevrimdışı = beklenen durum → kayda yazılmaz (120 satırı doldurmasın) */ _plog('ag','Sunucudan emir ALINAMADI — worker redeploy edilmemiş, çevrimdışı ya da CORS olabilir.'); return; }
   if(!orders.length) return;
   var seen=_purgeSeen();
   var fresh=orders.filter(function(o){ return o && +o.ts>seen; }).sort(function(a,b){ return a.ts-b.ts; });
@@ -11139,6 +11152,73 @@ function _showUpdateBanner(newTs){
 setTimeout(_checkLibUpdate,2500);
 /* PWA arka plandan öne gelince de kontrol et (iOS PWA günlerce canlı kalır, cold-start beklenmez) */
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') _checkLibUpdate(); });
+
+/* ---- __OFFLINE_UI__ v1 (2026-11-06): ÇEVRİMDIŞI ROZETİ + BAĞLANTI GELİNCE "YENİLE" ----
+   sw.js artık kütüphane sayfasının kopyasını tutuyor → uygulama internetsiz de açılır (__OFFLINE_SHELL__).
+   · İnternet yokken alt ortada küçük rozet: "Çevrimdışı — indirilen içerikler açılır". Dokunmayı ENGELLEMEZ.
+   · Uygulama İNTERNETSİZ açıldıysa açılıştaki sunucu işleri (duyuru, başlıklar, tıklanabilirlik, güncelleme
+     kontrolü…) hiç çalışmamıştır → bağlantı gelince rozet "Bağlantı geldi · Yenile" düğmesine döner; basınca
+     aynı kütüphane + aynı kaydırma yerinde taze açılış (var olan __lib_restore yolu — initApp geri yükler).
+   · "Yeni bir sürüm mevcut" bandı (#_lib_upd_b) çıkarsa o öncelikli → düğme kaldırılır (çift uyarı olmaz).
+   · Hoşgeldin kapısı açıksa düğme hiç çıkmaz (__lib_restore kapıyı atlar — o yol kapıda KULLANILMAZ).
+   · İnternetli açılıp sonra kopan/geri gelen bağlantıda yalnız rozet görünüp kaybolur (yenileme gerekmez).
+   · z 9990: içeriğin üstünde; pencereler (9999), masaüstü podcast katmanı (9999) ve kapı (200000) altında.
+   · Stilini kendisi ekler; başka hiçbir koda dokunmaz; her adım try/catch. */
+var _offBoot=false; try{ _offBoot=(navigator.onLine===false); }catch(e){}
+function _offCss(){
+  if(document.getElementById('_lib_off_css')) return;
+  var s=document.createElement('style'); s.id='_lib_off_css';
+  /* YER: tema çubuğunun (#themebar — telefonda alt orta, 12px + ~42px yükseklik) ÜSTÜNDE → onu örtmez.
+     Ortalama transform'SUZ (left/right 0 + margin auto): iOS'ta fixed+transform momentum kaydırmada
+     yanlış yere çiziliyordu (#themebar'daki ders) — aynı yöntem. */
+  s.textContent='#_lib_off{position:fixed;left:0;right:0;margin:0 auto;width:-webkit-fit-content;width:fit-content;'
+    +'bottom:calc(66px + env(safe-area-inset-bottom,0px));'
+    +'z-index:9990;max-width:calc(100% - 32px);box-sizing:border-box;padding:7px 15px;border-radius:999px;'
+    +'background:rgba(15,20,25,.88);color:#e8edf2;font-family:inherit;font-size:12.5px;font-weight:600;line-height:1.35;'
+    +'box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'
+    +'-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}'
+    +'#_lib_off[data-k="back"]{pointer-events:auto;cursor:pointer;background:#2563eb;color:#fff}';
+  (document.head||document.documentElement).appendChild(s);
+}
+function _offPaint(){
+  try{
+    var on=(navigator.onLine!==false), gate=!!document.getElementById('_codegate');
+    var want=!on?'off':((_offBoot&&!gate&&!document.getElementById('_lib_upd_b'))?'back':'');
+    var el=document.getElementById('_lib_off');
+    if(!want){ if(el&&el.parentNode) el.parentNode.removeChild(el); return; }
+    if(!document.body) return;
+    _offCss();
+    if(!el){ el=document.createElement('div'); el.id='_lib_off'; document.body.appendChild(el); }
+    if(el.getAttribute('data-k')===want) return;
+    el.setAttribute('data-k',want);
+    if(want==='off'){
+      el.setAttribute('role','status'); el.removeAttribute('tabindex');
+      el.textContent='Çevrimdışı — indirilen içerikler açılır';
+      el.onclick=null; el.onkeydown=null;
+    } else {
+      el.setAttribute('role','button'); el.setAttribute('tabindex','0');
+      el.textContent='Bağlantı geldi · Yenile ↻';
+      el.onclick=_offReload;
+      el.onkeydown=function(ev){ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); _offReload(); } };
+      /* güncelleme bandı birkaç sn içinde çıkarsa (HEAD kontrolü sürer) o öncelikli → yeniden bak */
+      setTimeout(_offPaint,2500); setTimeout(_offPaint,7000);
+    }
+  }catch(e){}
+}
+function _offReload(){
+  if(document.getElementById('_codegate')){ try{ location.reload(); }catch(e){} return; }   /* kapı açıkken geri-yükleme yolu YOK */
+  try{
+    var v=document.querySelector('.lib-view.active');
+    localStorage.setItem('__lib_restore', JSON.stringify({ lib: v ? v.getAttribute('data-lib') : '', y: window.scrollY || document.documentElement.scrollTop || 0 }));
+  }catch(e){}
+  try{ location.href = location.pathname + '?t=' + Date.now(); }
+  catch(e){ try{ location.reload(); }catch(_e){} }
+}
+window.addEventListener('online',_offPaint);
+window.addEventListener('offline',_offPaint);
+window.addEventListener('pageshow',_offPaint);
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') _offPaint(); });
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_offPaint); else _offPaint();
 
 /* ---- __SW_MODE__ v1: SEÇMELİ medya açılış modu (Blob=varsayılan / SW) ----
    SW kaydı HER ZAMAN yapılır (https'te) — sw.js tam geçirgen olduğundan kayıtlı olması hiçbir şeyi değiştirmez;
